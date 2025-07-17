@@ -1,6 +1,6 @@
-import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js';
-import { getDatabase, ref, set, onValue, push, remove } from 'https://www.gstatic.com/firebasejs/9.6.1/firebase-database.js';
-import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from 'https://www.gstatic.com/firebasejs/9.6.1/firebase-storage.js';
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
+import { getDatabase, ref, set, onValue, push, remove } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js';
+import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js';
 
 const firebaseConfig = {
   apiKey: "AIzaSyB7-fXR59CqNMyYgZTDAdBNpMTE_GkcOlA",
@@ -12,9 +12,14 @@ const firebaseConfig = {
   measurementId: "G-N3LBBHM2N0"
 };
 
-const app = initializeApp(firebaseConfig);
-const db = getDatabase(app);
-const storage = getStorage(app);
+let app, db, storage;
+try {
+  app = initializeApp(firebaseConfig);
+  db = getDatabase(app);
+  storage = getStorage(app);
+} catch (error) {
+  console.error('Firebase initialization error:', error);
+}
 const DB_NAME = 'ansar-almouyassar';
 const DB_VERSION = 1;
 let db;
@@ -25,6 +30,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const chatbotButton = document.querySelector('.chatbot-button');
   if (chatbotButton) {
     chatbotButton.addEventListener('click', toggleChatbot);
+  } else {
+    console.error('Chatbot button not found');
   }
 
   const chatbotForm = document.querySelector('#chatbot-form');
@@ -32,15 +39,18 @@ document.addEventListener('DOMContentLoaded', () => {
     chatbotForm.addEventListener('submit', (e) => {
       e.preventDefault();
       const input = document.querySelector('#chatbot-input');
-      const message = input.value;
+      if (!input) return;
+      const message = input.value.trim();
       if (!message) return;
       const messages = document.querySelector('#chatbot-messages');
+      if (!messages) return;
       messages.innerHTML += `<div class="chatbot-message sent">${message}</div>`;
       const secretCodes = ['ADMIN12301012000', '00000000', '11111111', '22222222'];
-      if (secretCodes.includes(message)) {
-        document.querySelector('#secret-entry').style.display = 'block';
+      const secretEntry = document.querySelector('#secret-entry');
+      if (secretCodes.includes(message) && secretEntry) {
+        secretEntry.style.display = 'block';
         setTimeout(() => {
-          document.querySelector('#secret-entry').style.display = 'none';
+          secretEntry.style.display = 'none';
         }, 30000);
       } else {
         const response = getChatbotResponse(message);
@@ -57,12 +67,15 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // Navigation
-  document.querySelectorAll('.nav-item').forEach(item => {
-    item.addEventListener('click', (e) => {
-      e.preventDefault();
-      const page = item.getAttribute('onclick').match(/'([^']+)'/)[1];
-      showPage(page);
-    });
+  const navItems = document.querySelectorAll('.nav-item');
+  navItems.forEach(item => {
+    const page = item.getAttribute('data-page');
+    if (page) {
+      item.addEventListener('click', (e) => {
+        e.preventDefault();
+        showPage(page);
+      });
+    }
   });
 
   // Paramètres
@@ -71,121 +84,15 @@ document.addEventListener('DOMContentLoaded', () => {
     settingsIcon.addEventListener('click', () => showPage('settings'));
   }
 
-  // Formulaires
-  const forms = [
-    'add-gallery-form', 'add-president-file-form', 'add-secretary-file-form', 'add-internal-doc-form',
-    'add-member-form', 'add-event-form', 'add-message-form', 'add-note-form', 'add-auto-message-form',
-    'suggestion-form', 'add-contribution-form', 'add-president-note-form', 'add-secretary-note-form'
-  ];
-  forms.forEach(formId => {
-    const form = document.querySelector(`#${formId}`);
-    if (form) {
-      form.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        if (!currentUser) return;
-        if (formId === 'add-gallery-form' && currentUser.role !== 'admin') return;
-        if (formId === 'add-president-file-form' && currentUser.role !== 'president') return;
-        if (formId === 'add-secretary-file-form' && currentUser.role !== 'secretaire') return;
-        if (formId === 'add-internal-doc-form' && currentUser.role !== 'admin') return;
-        if (formId === 'add-member-form' && currentUser.role !== 'admin') return;
-        if (formId === 'add-event-form' && currentUser.role !== 'admin') return;
-        if (formId === 'add-message-form' && currentUser.role !== 'admin') return;
-        if (formId === 'add-note-form' && currentUser.role !== 'admin') return;
-        if (formId === 'add-auto-message-form' && currentUser.role !== 'admin') return;
-        if (formId === 'add-contribution-form' && currentUser.role !== 'tresorier') return;
-        if (formId === 'add-president-note-form' && currentUser.role !== 'president') return;
-        if (formId === 'add-secretary-note-form' && currentUser.role !== 'secretaire') return;
-
-        if (formId === 'add-gallery-form') {
-          const file = document.querySelector('#gallery-file').files[0];
-          if (file) {
-            const fileRef = storageRef(storage, `gallery/${Date.now()}_${file.name}`);
-            await uploadBytes(fileRef, file);
-            const url = await getDownloadURL(fileRef);
-            const galleryItem = { type: file.type.startsWith('image') ? 'image' : 'video', url, name: file.name };
-            const dbRef = ref(db, 'gallery');
-            await push(dbRef, galleryItem);
-            form.reset();
-            updateGalleryContent();
-            updateGalleryAdminList();
-          }
-        } else if (formId === 'add-president-file-form') {
-          const file = document.querySelector('#president-file').files[0];
-          if (file) {
-            const fileRef = storageRef(storage, `presidentFiles/${Date.now()}_${file.name}`);
-            await uploadBytes(fileRef, file);
-            const url = await getDownloadURL(fileRef);
-            const fileItem = { name: file.name, url, category: document.querySelector('#president-file-category').value };
-            const dbRef = ref(db, 'presidentFiles');
-            await push(dbRef, fileItem);
-            form.reset();
-            updatePresidentFilesList();
-          }
-        } else if (formId === 'add-secretary-file-form') {
-          const file = document.querySelector('#secretary-file').files[0];
-          if (file) {
-            const fileRef = storageRef(storage, `secretaryFiles/${Date.now()}_${file.name}`);
-            await uploadBytes(fileRef, file);
-            const url = await getDownloadURL(fileRef);
-            const fileItem = { name: file.name, url, category: document.querySelector('#secretary-file-category').value };
-            const dbRef = ref(db, 'secretaryFiles');
-            await push(dbRef, fileItem);
-            form.reset();
-            updateSecretaryFilesList();
-          }
-        } else if (formId === 'add-internal-doc-form') {
-          const file = document.querySelector('#internal-doc').files[0];
-          if (file) {
-            const fileRef = storageRef(storage, `internalDocs/${Date.now()}_${file.name}`);
-            await uploadBytes(fileRef, file);
-            const url = await getDownloadURL(fileRef);
-            const docItem = { name: file.name, url, category: document.querySelector('#internal-doc-category').value };
-            const dbRef = ref(db, 'internalDocs');
-            await push(dbRef, docItem);
-            form.reset();
-            updateInternalDocsList();
-          }
-        } else if (formId === 'suggestion-form') {
-          const text = document.querySelector('#suggestion-text').value;
-          const suggestion = { member: `${currentUser.firstname} ${currentUser.lastname}`, text, timestamp: new Date().toISOString() };
-          const dbRef = ref(db, 'suggestions');
-          await push(dbRef, suggestion);
-          form.reset();
-          updateSuggestionsList();
-        } else if (formId === 'add-contribution-form') {
-          const contribution = {
-            name: document.querySelector('#contribution-name').value,
-            amount: parseInt(document.querySelector('#contribution-amount').value),
-            timestamp: new Date().toISOString()
-          };
-          const dbRef = ref(db, 'contributions');
-          await push(dbRef, contribution);
-          form.reset();
-          updateContributionsAdminList();
-        } else if (formId === 'add-president-note-form') {
-          const note = {
-            theme: document.querySelector('#president-note-theme').value,
-            text: document.querySelector('#president-note-text').value,
-            timestamp: new Date().toISOString()
-          };
-          const dbRef = ref(db, 'presidentNotes');
-          await push(dbRef, note);
-          form.reset();
-          updatePresidentNotesList();
-        } else if (formId === 'add-secretary-note-form') {
-          const note = {
-            theme: document.querySelector('#secretary-note-theme').value,
-            text: document.querySelector('#secretary-note-text').value,
-            timestamp: new Date().toISOString()
-          };
-          const dbRef = ref(db, 'secretaryNotes');
-          await push(dbRef, note);
-          form.reset();
-          updateSecretaryNotesList();
-        }
-      });
-    }
-  });
+  // Boutons de paiement
+  const waveButton = document.querySelector('button[onclick="payViaWave()"]');
+  if (waveButton) {
+    waveButton.addEventListener('click', payViaWave);
+  }
+  const orangeMoneyButton = document.querySelector('button[onclick="payViaOrangeMoney()"]');
+  if (orangeMoneyButton) {
+    orangeMoneyButton.addEventListener('click', payViaOrangeMoney);
+  }
 });
 
 
@@ -304,16 +211,16 @@ function showPage(page) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
   pageElement.classList.add('active');
-  const navItem = document.querySelector(`.nav-item[onclick="showPage('${page}')"]`);
+  const navItem = document.querySelector(`.nav-item[data-page="${page}"]`);
   if (navItem) {
     navItem.classList.add('active');
   }
-  if (page === 'personal' && !currentUser) {
+  if (page === 'personal') {
     const personalLogin = document.querySelector('#personal-login');
     const personalContent = document.querySelector('#personal-content');
     if (personalLogin && personalContent) {
-      personalLogin.style.display = 'block';
-      personalContent.style.display = 'none';
+      personalLogin.style.display = currentUser ? 'none' : 'block';
+      personalContent.style.display = currentUser ? 'block' : 'none';
     }
   }
 }
