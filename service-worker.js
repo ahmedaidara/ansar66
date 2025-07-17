@@ -7,9 +7,7 @@ self.addEventListener('install', (event) => {
         '/main.css',
         '/main.js',
         '/chatbotResponses.js',
-        '/assets/images/logo.png',
-        '/assets/images/chatbot-bg.jpg',
-        '/assets/videos/intro.mp4'
+        '/assets/images/default-photo.png'
       ]);
     })
   );
@@ -18,7 +16,12 @@ self.addEventListener('install', (event) => {
 self.addEventListener('fetch', (event) => {
   event.respondWith(
     caches.match(event.request).then((response) => {
-      return response || fetch(event.request);
+      return response || fetch(event.request).catch(() => {
+        if (event.request.url.endsWith('.png') || event.request.url.endsWith('.jpg')) {
+          return caches.match('/assets/images/default-photo.png');
+        }
+        return new Response('Ressource non trouvée', { status: 404 });
+      });
     })
   );
 });
@@ -28,7 +31,7 @@ self.addEventListener('push', (event) => {
   const title = data.title || 'ANSAR ALMOUYASSAR';
   const options = {
     body: data.body,
-    icon: '/assets/images/logo.png'
+    icon: '/assets/images/default-photo.png'
   };
   event.waitUntil(self.registration.showNotification(title, options));
 });
