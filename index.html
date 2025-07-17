@@ -5,13 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Ansar - Plateforme de Gestion</title>
   <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
-  <link href="main.css" rel="stylesheet">
+  <link href="/main.css" rel="stylesheet">
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-storage.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://embed.whereby.com/sdk"></script>
-  <script src="main.js" defer></script>
+  <script src="/main.js" defer></script>
 </head>
 <body>
   <header>
@@ -25,7 +25,7 @@
       <a href="#" onclick="showPage('coran')" class="nav-item">Coran</a>
       <a href="#" onclick="showPage('library')" class="nav-item">Bibliothèque</a>
       <a href="#" onclick="showPage('personal')" class="nav-item">Espace Personnel</a>
-      <span class="material-icons" onclick="showPage('settings')">settings</span>
+      <span class="material-icons settings-icon" onclick="showPage('settings')">settings</span>
     </nav>
     <button onclick="toggleTheme()" class="cta-button">Basculer Thème</button>
   </header>
@@ -43,13 +43,13 @@
 
     <section id="members" class="page">
       <h2>Liste des Membres</h2>
-      <input type="text" id="members-search" placeholder="Rechercher un membre..." oninput="updateMembersList()">
+      <input type="text" id="members-search" placeholder="Rechercher un membre...">
       <div id="members-list"></div>
     </section>
 
     <section id="events" class="page">
       <h2>Événements</h2>
-      <input type="text" id="events-search" placeholder="Rechercher un événement..." oninput="updateEventsList()">
+      <input type="text" id="events-search" placeholder="Rechercher un événement...">
       <div id="events-list"></div>
     </section>
 
@@ -66,13 +66,13 @@
 
     <section id="coran" class="page">
       <h2>Coran</h2>
-      <input type="text" id="coran-search" placeholder="Rechercher un Juz'..." oninput="updateCoranContent()">
+      <input type="text" id="coran-search" placeholder="Rechercher un Juz'...">
       <div id="coran-content"></div>
     </section>
 
     <section id="library" class="page">
       <h2>Bibliothèque</h2>
-      <input type="text" id="library-search" placeholder="Rechercher un document..." oninput="updateLibraryContent()">
+      <input type="text" id="library-search" placeholder="Rechercher un document...">
       <div id="library-content"></div>
     </section>
 
@@ -136,7 +136,7 @@
         </form>
       </div>
       <div id="edit-members" class="tab-content">
-        <input type="text" id="edit-member-search" placeholder="Rechercher un membre..." oninput="updateEditMembersList()">
+        <input type="text" id="edit-member-search" placeholder="Rechercher un membre...">
         <div id="edit-members-list"></div>
         <form id="delete-member-form" style="display: none;">
           <input type="text" id="delete-member-code" placeholder="Code président" required>
@@ -144,7 +144,7 @@
         </form>
       </div>
       <div id="events-admin" class="tab-content">
-        <input type="text" id="events-admin-search" placeholder="Rechercher un événement..." oninput="updateEventsAdminList()">
+        <input type="text" id="events-admin-search" placeholder="Rechercher un événement...">
         <div id="events-admin-list"></div>
         <form id="add-event-form">
           <input type="text" id="event-name" placeholder="Nom de l'événement" required>
@@ -156,7 +156,7 @@
         </form>
       </div>
       <div id="gallery-admin" class="tab-content">
-        <input type="text" id="gallery-admin-search" placeholder="Rechercher un média..." oninput="updateGalleryAdminList()">
+        <input type="text" id="gallery-admin-search" placeholder="Rechercher un média...">
         <div id="gallery-admin-list"></div>
         <form id="add-gallery-form">
           <input type="file" id="gallery-file" accept="image/*,video/*" required>
@@ -164,7 +164,7 @@
         </form>
       </div>
       <div id="messages-admin" class="tab-content">
-        <input type="text" id="messages-admin-search" placeholder="Rechercher un message..." oninput="updateMessagesAdminList()">
+        <input type="text" id="messages-admin-search" placeholder="Rechercher un message...">
         <div id="messages-admin-list"></div>
         <form id="add-message-form">
           <input type="text" id="message-title" placeholder="Titre" required>
@@ -173,7 +173,7 @@
         </form>
       </div>
       <div id="auto-messages" class="tab-content">
-        <input type="text" id="auto-messages-search" placeholder="Rechercher un message automatique..." oninput="updateAutoMessagesList()">
+        <input type="text" id="auto-messages-search" placeholder="Rechercher un message automatique...">
         <div id="auto-messages-list"></div>
         <form id="add-auto-message-form">
           <input type="text" id="auto-message-name" placeholder="Nom" required>
@@ -184,7 +184,7 @@
         </form>
       </div>
       <div id="notes" class="tab-content">
-        <input type="text" id="notes-search" placeholder="Rechercher une note..." oninput="updateNotesList()">
+        <input type="text" id="notes-search" placeholder="Rechercher une note...">
         <div id="notes-list"></div>
         <form id="add-note-form">
           <input type="text" id="note-theme" placeholder="Thème" required>
@@ -193,7 +193,7 @@
         </form>
       </div>
       <div id="internal-docs" class="tab-content">
-        <input type="text" id="internal-docs-search" placeholder="Rechercher un document..." oninput="updateInternalDocsList()">
+        <input type="text" id="internal-docs-search" placeholder="Rechercher un document...">
         <div id="internal-docs-list"></div>
         <form id="add-internal-doc-form">
           <input type="text" id="internal-doc-category" placeholder="Catégorie" required>
@@ -207,7 +207,7 @@
       <h2>Espace Trésorier</h2>
       <button onclick="showTab('treasurer-contributions')" class="tab-button">Cotisations</button>
       <div id="treasurer-contributions" class="tab-content">
-        <input type="text" id="contributions-admin-search" placeholder="Rechercher une cotisation..." oninput="updateContributionsAdminList()">
+        <input type="text" id="contributions-admin-search" placeholder="Rechercher une cotisation...">
         <div id="contributions-admin-list"></div>
         <form id="add-contribution-form">
           <input type="text" id="contribution-name" placeholder="Nom de la cotisation" required>
@@ -221,7 +221,7 @@
       <h2>Espace Président</h2>
       <button onclick="showTab('president-files')" class="tab-button">Fichiers</button>
       <div id="president-files" class="tab-content">
-        <input type="text" id="president-files-search" placeholder="Rechercher un fichier..." oninput="updatePresidentFilesList()">
+        <input type="text" id="president-files-search" placeholder="Rechercher un fichier...">
         <div id="president-files-list"></div>
         <form id="add-president-file-form">
           <input type="text" id="president-file-category" placeholder="Catégorie" required>
@@ -235,7 +235,7 @@
       <h2>Espace Secrétaire</h2>
       <button onclick="showTab('secretary-files')" class="tab-button">Fichiers</button>
       <div id="secretary-files" class="tab-content">
-        <input type="text" id="secretary-files-search" placeholder="Rechercher un fichier..." oninput="updateSecretaryFilesList()">
+        <input type="text" id="secretary-files-search" placeholder="Rechercher un fichier...">
         <div id="secretary-files-list"></div>
         <form id="add-secretary-file-form">
           <input type="text" id="secretary-file-category" placeholder="Catégorie" required>
@@ -252,8 +252,9 @@
 
     <section id="video-calls" class="page">
       <h2>Appels Vidéo</h2>
-      <input type="checkbox" id="call-all" onchange="toggleCallAll()"> <label for="call-all">Cocher tout</label>
-      <input type="text" id="video-calls-search" placeholder="Rechercher un membre..." oninput="updateCallMembersList()">
+      <input type="checkbox" id="call-all">
+      <label for="call-all">Cocher tout</label>
+      <input type="text" id="video-calls-search" placeholder="Rechercher un membre...">
       <div id="members-call-list"></div>
       <div id="video-call-container"></div>
       <button onclick="startCall('video')" class="cta-button">Démarrer Appel Vidéo</button>
@@ -264,10 +265,17 @@
     <span class="material-icons">chat</span>
   </button>
   <div id="chatbot">
-    <div id="chatbot-messages"></div>
+    <div id="chatbot-messages">
+      <div class="chatbot-message received">
+        Bienvenue ! Posez une question ou utilisez un mot-clé comme "association", "membre", "cotisation", etc.
+        <button class="clear-chat" onclick="clearChatHistory()">
+          <span class="material-icons">delete</span>
+        </button>
+      </div>
+    </div>
     <form id="chatbot-form">
       <input id="chatbot-input" type="text" placeholder="Posez une question...">
-      <button type="submit">Envoyer</button>
+      <button type="submit" class="cta-button">Envoyer</button>
     </form>
     <div id="secret-entry" style="display: none;">
       <input id="secret-password" type="password" placeholder="Mot de passe secret">
