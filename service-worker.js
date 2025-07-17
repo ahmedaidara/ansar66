@@ -1,13 +1,13 @@
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open('ansar-almouyassar-v2').then((cache) => {
+    caches.open('ansar-almouyassar-v1').then((cache) => {
       return cache.addAll([
         '/',
         '/index.html',
         '/main.css',
         '/main.js',
         '/chatbotResponses.js',
-        '/assets/images/default-photo.png'
+        '/logo.png'
       ]);
     })
   );
