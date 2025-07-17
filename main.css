@@ -17,17 +17,24 @@ header {
 #logo {
   width: 100px;
   height: auto;
+  border-radius: 5px;
 }
 
 nav {
   display: flex;
-  gap: 20px;
+  gap: 15px;
+  align-items: center;
 }
 
-nav a, nav span {
+nav a, nav .settings-icon {
   color: white;
   text-decoration: none;
   cursor: pointer;
+  font-size: 16px;
+}
+
+nav a:hover, nav .settings-icon:hover {
+  color: #9b9c28;
 }
 
 nav a.active {
@@ -63,6 +70,7 @@ main {
   border-radius: 5px;
   cursor: pointer;
   margin: 5px;
+  font-size: 14px;
 }
 
 .cta-button:hover {
@@ -75,8 +83,13 @@ main {
   right: 20px;
   background: #9b9c28;
   border-radius: 50%;
-  padding: 10px;
+  padding: 12px;
   border: none;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+}
+
+.chatbot-button:hover {
+  background: #3a6241;
 }
 
 #chatbot {
@@ -88,8 +101,10 @@ main {
   border: 1px solid #ccc;
   border-radius: 10px;
   width: 300px;
+  max-height: 400px;
   padding: 10px;
   box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+  z-index: 1000;
 }
 
 #chatbot-messages {
@@ -102,6 +117,7 @@ main {
   margin: 5px;
   padding: 8px;
   border-radius: 5px;
+  font-size: 14px;
 }
 
 .chatbot-message.sent {
@@ -112,6 +128,16 @@ main {
 
 .chatbot-message.received {
   background: #f0f0f0;
+  position: relative;
+}
+
+.clear-chat {
+  background: none;
+  border: none;
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  cursor: pointer;
 }
 
 #chatbot-form {
@@ -124,10 +150,15 @@ main {
   padding: 5px;
   border: 1px solid #ccc;
   border-radius: 5px;
+  font-size: 14px;
 }
 
 #secret-entry {
   margin-top: 10px;
+}
+
+#secret-password, #secret-submit {
+  width: 100%;
 }
 
 .member-card, .event-card, .contribution-card, .message-card, .suggestion-card, .file-card, .note-card {
@@ -147,16 +178,30 @@ main {
   padding: 10px;
   border-radius: 5px;
   box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+  z-index: 1000;
 }
 
 .close-button {
   background: none;
   border: none;
   cursor: pointer;
+  position: absolute;
+  top: 5px;
+  right: 5px;
 }
 
 .tab-button {
+  background: #3a6241;
+  color: white;
+  padding: 8px 16px;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
   margin: 5px;
+}
+
+.tab-button.active {
+  background: #9b9c28;
 }
 
 input, textarea, select {
@@ -166,6 +211,7 @@ input, textarea, select {
   max-width: 400px;
   border: 1px solid #ccc;
   border-radius: 5px;
+  font-size: 14px;
 }
 
 form {
@@ -188,7 +234,9 @@ video, img {
   background: #2a4a31;
 }
 
-.dark-mode .member-card, .dark-mode .event-card, .dark-mode .contribution-card, .dark-mode .message-card, .dark-mode .suggestion-card, .dark-mode .file-card, .dark-mode .note-card {
+.dark-mode .member-card, .dark-mode .event-card, .dark-mode .contribution-card, 
+.dark-mode .message-card, .dark-mode .suggestion-card, .dark-mode .file-card, 
+.dark-mode .note-card {
   background: #444;
   border-color: #666;
 }
@@ -200,4 +248,19 @@ video, img {
 .dark-mode #chatbot {
   background: #444;
   border-color: #666;
+}
+
+@media (max-width: 600px) {
+  header {
+    flex-direction: column;
+    gap: 10px;
+  }
+  nav {
+    flex-direction: column;
+    gap: 10px;
+  }
+  #chatbot {
+    width: 90%;
+    right: 5%;
+  }
 }
