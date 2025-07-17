@@ -41,6 +41,8 @@ body {
 .settings-icon {
   cursor: pointer;
   font-size: 24px;
+  margin-right: 1rem;
+  z-index: 1001;
 }
 
 main {
@@ -160,6 +162,7 @@ main {
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
   cursor: pointer;
   transition: transform 0.3s ease;
+  z-index: 1002;
 }
 
 .chatbot-button:hover {
@@ -171,12 +174,15 @@ main {
   bottom: 160px;
   right: 20px;
   width: 300px;
+  height: 400px;
   background: url('assets/images/chatbot-bg.jpg') no-repeat center center;
   background-size: contain;
   border: 1px solid var(--secondary-color);
   border-radius: 10px;
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
   z-index: 1000;
+  display: flex;
+  flex-direction: column;
 }
 
 .chatbot-header {
@@ -190,7 +196,8 @@ main {
 }
 
 .chatbot-messages {
-  max-height: 300px;
+  flex-grow: 1;
+  max-height: 280px;
   overflow-y: auto;
   padding: 1rem;
   background: rgba(255, 255, 255, 0.8);
@@ -213,6 +220,12 @@ main {
   color: white;
 }
 
+#chatbot-controls {
+  padding: 0.5rem;
+  background: rgba(255, 255, 255, 0.8);
+  text-align: center;
+}
+
 #chatbot-form {
   display: flex;
   padding: 0.5rem;
@@ -222,6 +235,11 @@ main {
 #chatbot-input {
   flex-grow: 1;
   margin-right: 0.5rem;
+}
+
+#secret-entry {
+  padding: 0.5rem;
+  background: rgba(255, 255, 255, 0.8);
 }
 
 form {
@@ -343,5 +361,6 @@ canvas {
 
   .chatbot-container {
     width: 90%;
+    height: 400px;
   }
 }
