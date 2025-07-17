@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>ANSAR ALMOUYASSAR</title>
   <link rel="stylesheet" href="main.css">
-  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons|Material+Icons+Outlined" rel="stylesheet">
   <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&family=Amiri&display=swap" rel="stylesheet">
   <link rel="manifest" href="manifest.json">
 <script type="module" src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js"></script>
@@ -344,16 +344,16 @@
     </section>
   </main>
   <footer>
-    <nav class="bottom-nav">
-      <a href="#" class="nav-item active" onclick="showPage('home')"><span class="material-icons">home</span>Accueil</a>
-      <a href="#" class="nav-item" onclick="showPage('members')"><span class="material-icons">people</span>Membres</a>
-      <a href="#" class="nav-item" onclick="showPage('events')"><span class="material-icons">event</span>Événements</a>
-      <a href="#" class="nav-item" onclick="showPage('gallery')"><span class="material-icons">photo_library</span>Galerie</a>
-      <a href="#" class="nav-item" onclick="showPage('messages')"><span class="material-icons">notifications</span>Messages</a>
-      <a href="#" class="nav-item" onclick="showPage('coran')"><span class="material-icons">book</span>Coran</a>
-      <a href="#" class="nav-item" onclick="showPage('personal')"><span class="material-icons">person</span>Personnel</a>
-      <a href="#" class="nav-item" onclick="showPage('library')"><span class="material-icons">library_books</span>Bibliothèque</a>
-    </nav>
+<nav class="bottom-nav">
+  <a href="#" class="nav-item active" data-page="home"><span class="material-icons">home</span>Accueil</a>
+  <a href="#" class="nav-item" data-page="members"><span class="material-icons">people</span>Membres</a>
+  <a href="#" class="nav-item" data-page="events"><span class="material-icons">event</span>Événements</a>
+  <a href="#" class="nav-item" data-page="gallery"><span class="material-icons">photo_library</span>Galerie</a>
+  <a href="#" class="nav-item" data-page="messages"><span class="material-icons">notifications</span>Messages</a>
+  <a href="#" class="nav-item" data-page="coran"><span class="material-icons">book</span>Coran</a>
+  <a href="#" class="nav-item" data-page="personal"><span class="material-icons">person</span>Personnel</a>
+  <a href="#" class="nav-item" data-page="library"><span class="material-icons">library_books</span>Bibliothèque</a>
+</nav>
   </footer>
   <div class="chatbot-button">
     <span class="material-icons">chat</span>
