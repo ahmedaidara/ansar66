@@ -1,37 +1,25 @@
-self.addEventListener('install', (event) => {
+```javascript
+const CACHE_NAME = 'ansar-cache-v1';
+const urlsToCache = [
+  '/',
+  '/index.html',
+  '/style.css',
+  '/app.js',
+  '/logo.png',
+  '/help-bg.jpg'
+];
+
+self.addEventListener('install', event => {
   event.waitUntil(
-    caches.open('ansar-almouyassar-v1').then((cache) => {
-      return cache.addAll([
-        '/',
-        '/index.html',
-        '/main.css',
-        '/main.js',
-        '/chatbotResponses.js',
-        '/logo.png'
-      ]);
-    })
+    caches.open(CACHE_NAME)
+      .then(cache => cache.addAll(urlsToCache))
   );
 });
 
-self.addEventListener('fetch', (event) => {
+self.addEventListener('fetch', event => {
   event.respondWith(
-    caches.match(event.request).then((response) => {
-      return response || fetch(event.request).catch(() => {
-        if (event.request.url.endsWith('.png') || event.request.url.endsWith('.jpg') || event.request.url.endsWith('.mp4')) {
-          return caches.match('/assets/images/default-photo.png');
-        }
-        return new Response('Ressource non trouvée', { status: 404 });
-      });
-    })
+    caches.match(event.request)
+      .then(response => response || fetch(event.request))
   );
 });
-
-self.addEventListener('push', (event) => {
-  const data = event.data.json();
-  const title = data.title || 'ANSAR ALMOUYASSAR';
-  const options = {
-    body: data.body,
-    icon: '/assets/images/default-photo.png'
-  };
-  event.waitUntil(self.registration.showNotification(title, options));
-});
+```
