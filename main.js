@@ -22,8 +22,8 @@ let isChatOpen = false;
 let selectedCallMembers = [];
 
 const defaultData = {
-  members: [
-    {
+  members: {
+    '001': {
       code: '001',
       firstname: 'Mouhamed',
       lastname: 'Niang',
@@ -40,25 +40,27 @@ const defaultData = {
       status: 'actif',
       contributions: { 'Mensuelle': { '2023': Array(12).fill(false), '2024': Array(12).fill(false), '2025': Array(12).fill(false) } }
     }
-  ],
-  contributions: [{ name: 'Mensuelle', amount: 2000, years: ['2023', '2024', '2025'] }],
-  events: [{ name: 'Conférence Annuelle', description: 'Conférence 2025', image: 'assets/images/conference.jpg', datetime: '2025-08-17T15:00:00' }],
-  suggestions: [],
-  gallery: [],
-  messages: [],
-  autoMessages: [],
-  notes: [],
-  internalDocs: [],
-  presidentFiles: [],
-  secretaryFiles: [],
-  library: []
+  },
+  contributions: { 'mensuelle': { name: 'Mensuelle', amount: 2000, years: ['2023', '2024', '2025'] } },
+  events: { 'event1': { name: 'Conférence Annuelle', description: 'Conférence 2025', image: 'assets/images/conference.jpg', datetime: '2025-08-17T15:00:00' } },
+  suggestions: {},
+  gallery: {},
+  messages: {},
+  autoMessages: {},
+  notes: {},
+  internalDocs: {},
+  presidentFiles: {},
+  secretaryFiles: {},
+  library: {}
 };
 
 async function initDB() {
+  console.log('Initialisation de la base de données Firebase');
   const collections = ['members', 'contributions', 'events', 'suggestions', 'gallery', 'messages', 'autoMessages', 'notes', 'internalDocs', 'presidentFiles', 'secretaryFiles', 'library'];
   for (const collection of collections) {
     const snapshot = await get(ref(db, collection));
     if (!snapshot.exists()) {
+      console.log(`Initialisation de ${collection} avec les données par défaut`);
       await set(ref(db, collection), defaultData[collection]);
     }
     onValue(ref(db, collection), (snapshot) => {
@@ -69,6 +71,7 @@ async function initDB() {
 }
 
 function updateUI(collection, data) {
+  console.log(`Mise à jour UI pour ${collection}`);
   switch (collection) {
     case 'members': updateMembersList(); updateEditMembersList(); updateCallMembersList(); updateStats(); break;
     case 'contributions': updateContributionsAdminList(); updatePersonalInfo(); updateStats(); break;
@@ -86,44 +89,56 @@ function updateUI(collection, data) {
 }
 
 function showPage(pageId) {
+  const pageElement = document.querySelector(`#${pageId}`);
+  if (!pageElement) {
+    console.error(`Page ${pageId} non trouvée`);
+    return;
+  }
   document.querySelectorAll('.page').forEach(page => page.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active'));
-  const pageElement = document.querySelector(`#${pageId}`);
-  if (pageElement) {
-    pageElement.classList.add('active');
-    document.querySelector(`a[onclick="showPage('${pageId}')"]`)?.classList.add('active');
-  }
+  pageElement.classList.add('active');
+  const navItem = document.querySelector(`a[onclick="showPage('${pageId}')"]`);
+  if (navItem) navItem.classList.add('active');
   if (pageId === 'personal' && currentUser && currentUser.role !== 'admin') {
-    document.querySelector('#personal-login').style.display = 'none';
-    document.querySelector('#personal-content').style.display = 'block';
-    updatePersonalInfo();
+    const loginSection = document.querySelector('#personal-login');
+    const contentSection = document.querySelector('#personal-content');
+    if (loginSection && contentSection) {
+      loginSection.style.display = 'none';
+      contentSection.style.display = 'block';
+      updatePersonalInfo();
+    }
   }
 }
 
 function showTab(tabId) {
+  const tabElement = document.querySelector(`#${tabId}`);
+  if (!tabElement) {
+    console.error(`Onglet ${tabId} non trouvé`);
+    return;
+  }
   document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
   document.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('active'));
-  const tabElement = document.querySelector(`#${tabId}`);
-  if (tabElement) {
-    tabElement.classList.add('active');
-    document.querySelector(`button[onclick="showTab('${tabId}')"]`)?.classList.add('active');
-  }
+  tabElement.classList.add('active');
+  const tabButton = document.querySelector(`button[onclick="showTab('${tabId}')"]`);
+  if (tabButton) tabButton.classList.add('active');
 }
 
 function toggleTheme() {
   document.body.classList.toggle('dark-mode');
+  console.log('Thème basculé');
 }
 
 function updateEventCountdowns() {
   get(ref(db, 'events')).then((snapshot) => {
-    const events = snapshot.val() || [];
+    const events = snapshot.val() || {};
     const countdowns = document.getElementById('event-countdowns');
-    countdowns.innerHTML = Object.values(events).map(event => {
+    if (!countdowns) return;
+    countdowns.innerHTML = Object.entries(events).map(([key, event]) => {
       const eventDate = new Date(event.datetime);
       const now = new Date();
       const diff = eventDate - now;
       if (diff <= 0 && diff > -30 * 60 * 1000) {
-        return `<div id="countdown-${event.name}">Événement ${event.name} : EN COURS</div>`;
+        return `<div id="countdown-${key}">Événement ${event.name} : EN COURS</div>`;
       } else if (diff <= -30 * 60 * 1000) {
         return '';
       }
@@ -131,7 +146,7 @@ function updateEventCountdowns() {
       const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
       const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
       const seconds = Math.floor((diff % (1000 * 60)) / 1000);
-      return `<div id="countdown-${event.name}">Événement ${event.name} : JOUR J - ${days}j ${hours}h ${minutes}m ${seconds}s</div>`;
+      return `<div id="countdown-${key}">Événement ${event.name} : JOUR J - ${days}j ${hours}h ${minutes}m ${seconds}s</div>`;
     }).join('');
   });
 }
@@ -139,39 +154,50 @@ function updateEventCountdowns() {
 setInterval(updateEventCountdowns, 1000);
 setInterval(checkAutoMessages, 60000);
 
-document.querySelector('#settings-language').addEventListener('change', (e) => {});
-
 function toggleChatbot() {
   isChatOpen = !isChatOpen;
-  document.querySelector('#chatbot').style.display = isChatOpen ? 'block' : 'none';
-  if (isChatOpen) {
-    document.querySelector('#chatbot-messages').innerHTML = '<div class="chatbot-message received">Bienvenue ! Posez une question ou utilisez un mot-clé comme "association", "membre", "cotisation", etc.</div>';
+  const chatbot = document.querySelector('#chatbot');
+  if (chatbot) {
+    chatbot.style.display = isChatOpen ? 'flex' : 'none';
+    if (isChatOpen) {
+      const messages = document.querySelector('#chatbot-messages');
+      if (messages) {
+        messages.innerHTML = '<div class="chatbot-message received">Bienvenue ! Posez une question ou utilisez un mot-clé comme "association", "membre", "cotisation", etc.</div>';
+      }
+    }
   }
 }
 
 document.addEventListener('click', (e) => {
   const chatbot = document.querySelector('#chatbot');
   const chatbotButton = document.querySelector('.chatbot-button');
-  if (isChatOpen && !chatbot.contains(e.target) && !chatbotButton.contains(e.target)) {
+  if (isChatOpen && chatbot && chatbotButton && !chatbot.contains(e.target) && !chatbotButton.contains(e.target)) {
     toggleChatbot();
   }
 });
 
-document.querySelector('.chatbot-button').addEventListener('click', toggleChatbot);
+document.querySelector('.chatbot-button')?.addEventListener('click', () => {
+  console.log('Bouton chatbot cliqué');
+  toggleChatbot();
+});
 
-document.querySelector('#chatbot-form').addEventListener('submit', (e) => {
+document.querySelector('#chatbot-form')?.addEventListener('submit', (e) => {
   e.preventDefault();
   const input = document.querySelector('#chatbot-input');
-  const message = input.value;
-  if (!message) return;
   const messages = document.querySelector('#chatbot-messages');
+  if (!input || !messages) return;
+  const message = input.value.trim();
+  if (!message) return;
   messages.innerHTML += `<div class="chatbot-message sent">${message}</div>`;
   const secretCodes = ['ADMIN12301012000', '00000000', '11111111', '22222222'];
   if (secretCodes.includes(message)) {
-    document.querySelector('#secret-entry').style.display = 'block';
-    setTimeout(() => {
-      document.querySelector('#secret-entry').style.display = 'none';
-    }, 30000);
+    const secretEntry = document.querySelector('#secret-entry');
+    if (secretEntry) {
+      secretEntry.style.display = 'block';
+      setTimeout(() => {
+        secretEntry.style.display = 'none';
+      }, 30000);
+    }
   } else {
     const response = getChatbotResponse(message);
     messages.innerHTML += `<div class="chatbot-message received">${response}</div>`;
@@ -181,15 +207,21 @@ document.querySelector('#chatbot-form').addEventListener('submit', (e) => {
 });
 
 function clearChatHistory() {
-  document.querySelector('#chatbot-messages').innerHTML = '<div class="chatbot-message received">Historique effacé. Posez une question !</div>';
+  const messages = document.querySelector('#chatbot-messages');
+  if (messages) {
+    messages.innerHTML = '<div class="chatbot-message received">Historique effacé. Posez une question !</div>';
+    console.log('Historique du chatbot effacé');
+  }
 }
 
 function enterSecret() {
-  const password = document.querySelector('#secret-password').value;
+  const password = document.querySelector('#secret-password')?.value;
+  if (!password) return;
   const adminCodes = ['JESUISMEMBRE66', '33333333', '44444444', '55555555'];
   const treasurerCodes = ['JESUISTRESORIER444', '66666666', '77777777', '88888888'];
   const presidentCodes = ['PRESIDENT000', '99999999', '11112222', '33334444'];
   const secretaryCodes = ['SECRETAIRE000', '55556666', '77778888', '99990000'];
+  const messages = document.querySelector('#chatbot-messages');
   if (adminCodes.includes(password)) {
     currentUser = { code: 'ADMIN123', role: 'admin' };
     showPage('secret');
@@ -210,15 +242,19 @@ function enterSecret() {
     showTab('secretary-files');
     toggleChatbot();
   } else {
-    document.querySelector('#chatbot-messages').innerHTML += '<div class="chatbot-message received">Mot de passe incorrect.</div>';
+    if (messages) {
+      messages.innerHTML += '<div class="chatbot-message received">Mot de passe incorrect.</div>';
+      messages.scrollTop = messages.scrollHeight;
+    }
   }
 }
 
-document.querySelector('#personal-login-form').addEventListener('submit', async (e) => {
+document.querySelector('#personal-login-form')?.addEventListener('submit', async (e) => {
   e.preventDefault();
-  const code = document.querySelector('#personal-member-code').value;
-  const password = document.querySelector('#personal-password').value;
+  const code = document.querySelector('#personal-member-code')?.value;
+  const password = document.querySelector('#personal-password')?.value;
   const errorMessage = document.querySelector('#personal-error-message');
+  if (!code || !password || !errorMessage) return;
   const dateRegex = /^(0[1-9]|[12][0-9]|3[01])(0[1-9]|1[012])(19|20)\d\d$/;
   if (!dateRegex.test(password)) {
     errorMessage.textContent = 'Mot de passe invalide (format : JJMMAAAA)';
@@ -229,10 +265,15 @@ document.querySelector('#personal-login-form').addEventListener('submit', async 
   const member = snapshot.val();
   if (member && member.dob === password) {
     currentUser = { ...member, code };
-    document.querySelector('#personal-title').textContent = `Espace de ${member.firstname} ${member.lastname}`;
-    document.querySelector('#personal-login').style.display = 'none';
-    document.querySelector('#personal-content').style.display = 'block';
-    updatePersonalInfo();
+    const title = document.querySelector('#personal-title');
+    const loginSection = document.querySelector('#personal-login');
+    const contentSection = document.querySelector('#personal-content');
+    if (title && loginSection && contentSection) {
+      title.textContent = `Espace de ${member.firstname} ${member.lastname}`;
+      loginSection.style.display = 'none';
+      contentSection.style.display = 'block';
+      updatePersonalInfo();
+    }
   } else {
     errorMessage.textContent = 'Numéro de membre ou mot de passe incorrect';
     errorMessage.style.display = 'block';
@@ -241,12 +282,16 @@ document.querySelector('#personal-login-form').addEventListener('submit', async 
 
 function logoutPersonal() {
   currentUser = null;
-  document.querySelector('#personal-login').style.display = 'block';
-  document.querySelector('#personal-content').style.display = 'none';
-  showPage('home');
+  const loginSection = document.querySelector('#personal-login');
+  const contentSection = document.querySelector('#personal-content');
+  if (loginSection && contentSection) {
+    loginSection.style.display = 'block';
+    contentSection.style.display = 'none';
+    showPage('home');
+  }
 }
 
-document.querySelector('#add-member-form').addEventListener('submit', async (e) => {
+document.querySelector('#add-member-form')?.addEventListener('submit', async (e) => {
   e.preventDefault();
   if (!currentUser || currentUser.role !== 'admin') return;
   const snapshot = await get(ref(db, 'members'));
@@ -254,51 +299,54 @@ document.querySelector('#add-member-form').addEventListener('submit', async (e) 
   const newCode = `${(Object.keys(members).length + 1).toString().padStart(3, '0')}`;
   const member = {
     code: newCode,
-    firstname: document.querySelector('#new-member-firstname').value,
-    lastname: document.querySelector('#new-member-lastname').value,
-    age: parseInt(document.querySelector('#new-member-age').value) || null,
-    dob: document.querySelector('#new-member-dob').value || null,
-    birthplace: document.querySelector('#new-member-birthplace').value || null,
+    firstname: document.querySelector('#new-member-firstname')?.value || '',
+    lastname: document.querySelector('#new-member-lastname')?.value || '',
+    age: parseInt(document.querySelector('#new-member-age')?.value) || null,
+    dob: document.querySelector('#new-member-dob')?.value || null,
+    birthplace: document.querySelector('#new-member-birthplace')?.value || null,
     photo: 'assets/images/default-photo.png',
-    email: document.querySelector('#new-member-email').value || null,
-    activity: document.querySelector('#new-member-activity').value || null,
-    address: document.querySelector('#new-member-address').value || null,
-    phone: document.querySelector('#new-member-phone').value || null,
-    residence: document.querySelector('#new-member-residence').value || null,
-    role: document.querySelector('#new-member-role').value || 'membre',
-    status: document.querySelector('#new-member-status').value || 'actif',
+    email: document.querySelector('#new-member-email')?.value || null,
+    activity: document.querySelector('#new-member-activity')?.value || null,
+    address: document.querySelector('#new-member-address')?.value || null,
+    phone: document.querySelector('#new-member-phone')?.value || null,
+    residence: document.querySelector('#new-member-residence')?.value || null,
+    role: document.querySelector('#new-member-role')?.value || 'membre',
+    status: document.querySelector('#new-member-status')?.value || 'actif',
     contributions: { 'Mensuelle': { '2023': Array(12).fill(false), '2024': Array(12).fill(false), '2025': Array(12).fill(false) } }
   };
-  const file = document.querySelector('#new-member-photo').files[0];
+  const file = document.querySelector('#new-member-photo')?.files[0];
   if (file) {
     const fileRef = storageRef(storage, `members/${newCode}/${file.name}`);
     await uploadBytes(fileRef, file);
     member.photo = await getDownloadURL(fileRef);
   }
   await set(ref(db, `members/${newCode}`), member);
-  document.querySelector('#add-member-form').reset();
+  document.querySelector('#add-member-form')?.reset();
 });
 
-document.querySelector('#delete-member-form').addEventListener('submit', async (e) => {
+document.querySelector('#delete-member-form')?.addEventListener('submit', async (e) => {
   e.preventDefault();
-  const code = document.querySelector('#delete-member-code').value;
+  const code = document.querySelector('#delete-member-code')?.value;
+  const form = document.querySelector('#delete-member-form');
+  if (!code || !form) return;
   if (code !== presidentCode) {
     alert('Code président incorrect');
     return;
   }
-  const memberCode = document.querySelector('#delete-member-form').dataset.memberCode;
+  const memberCode = form.dataset.memberCode;
   await remove(ref(db, `members/${memberCode}`));
-  document.querySelector('#delete-member-form').style.display = 'none';
+  form.style.display = 'none';
 });
 
-document.querySelector('#add-contribution-form').addEventListener('submit', async (e) => {
+document.querySelector('#add-contribution-form')?.addEventListener('submit', async (e) => {
   e.preventDefault();
   if (!currentUser || currentUser.role !== 'tresorier') return;
-  const name = document.querySelector('#contribution-name').value;
-  const amount = parseInt(document.querySelector('#contribution-amount').value);
+  const name = document.querySelector('#contribution-name')?.value;
+  const amount = parseInt(document.querySelector('#contribution-amount')?.value);
+  if (!name || !amount) return;
   const currentYear = new Date().getFullYear().toString();
   const contribution = { name, amount, years: [currentYear] };
-  await push(ref(db, 'contributions'), contribution);
+  const newRef = await push(ref(db, 'contributions'), contribution);
   const snapshot = await get(ref(db, 'members'));
   const members = snapshot.val() || {};
   for (const [code, member] of Object.entries(members)) {
@@ -307,127 +355,126 @@ document.querySelector('#add-contribution-form').addEventListener('submit', asyn
       await set(ref(db, `members/${code}`), member);
     }
   }
-  document.querySelector('#add-contribution-form').reset();
+  document.querySelector('#add-contribution-form')?.reset();
+  sendNotification('Nouvelle cotisation', `Cotisation ${name} ajoutée (${amount} FCFA).`);
 });
 
-document.querySelector('#suggestion-form').addEventListener('submit', async (e) => {
+document.querySelector('#suggestion-form')?.addEventListener('submit', async (e) => {
   e.preventDefault();
   if (!currentUser) return;
-  const text = document.querySelector('#suggestion-text').value;
+  const text = document.querySelector('#suggestion-text')?.value;
+  if (!text) return;
   await push(ref(db, 'suggestions'), { member: `${currentUser.firstname} ${currentUser.lastname}`, text });
-  document.querySelector('#suggestion-form').reset();
+  document.querySelector('#suggestion-form')?.reset();
 });
 
-document.querySelector('#add-gallery-form').addEventListener('submit', async (e) => {
+document.querySelector('#add-gallery-form')?.addEventListener('submit', async (e) => {
   e.preventDefault();
   if (!currentUser || currentUser.role !== 'admin') return;
-  const file = document.querySelector('#gallery-file').files[0];
-  if (file) {
-    const fileRef = storageRef(storage, `gallery/${Date.now()}_${file.name}`);
-    await uploadBytes(fileRef, file);
-    const url = await getDownloadURL(fileRef);
-    await push(ref(db, 'gallery'), { type: file.type.startsWith('image') ? 'image' : 'video', url, name: file.name });
-    document.querySelector('#add-gallery-form').reset();
-  }
+  const file = document.querySelector('#gallery-file')?.files[0];
+  if (!file) return;
+  const fileRef = storageRef(storage, `gallery/${Date.now()}_${file.name}`);
+  await uploadBytes(fileRef, file);
+  const url = await getDownloadURL(fileRef);
+  await push(ref(db, 'gallery'), { type: file.type.startsWith('image') ? 'image' : 'video', url, name: file.name });
+  document.querySelector('#add-gallery-form')?.reset();
 });
 
-document.querySelector('#add-event-form').addEventListener('submit', async (e) => {
+document.querySelector('#add-event-form')?.addEventListener('submit', async (e) => {
   e.preventDefault();
   if (!currentUser || currentUser.role !== 'admin') return;
   const event = {
-    name: document.querySelector('#event-name').value,
-    description: document.querySelector('#event-description').value,
-    datetime: new Date(`${document.querySelector('#event-date').value}T${document.querySelector('#event-time').value}`).toISOString(),
+    name: document.querySelector('#event-name')?.value || '',
+    description: document.querySelector('#event-description')?.value || '',
+    datetime: new Date(`${document.querySelector('#event-date')?.value}T${document.querySelector('#event-time')?.value}`).toISOString(),
     image: ''
   };
-  const file = document.querySelector('#event-file').files[0];
+  const file = document.querySelector('#event-file')?.files[0];
   if (file) {
     const fileRef = storageRef(storage, `events/${Date.now()}_${file.name}`);
     await uploadBytes(fileRef, file);
     event.image = await getDownloadURL(fileRef);
   }
   await push(ref(db, 'events'), event);
-  document.querySelector('#add-event-form').reset();
+  document.querySelector('#add-event-form')?.reset();
 });
 
-document.querySelector('#add-message-form').addEventListener('submit', async (e) => {
+document.querySelector('#add-message-form')?.addEventListener('submit', async (e) => {
   e.preventDefault();
   if (!currentUser || currentUser.role !== 'admin') return;
   const message = {
-    title: document.querySelector('#message-title').value,
-    text: document.querySelector('#message-text').value,
+    title: document.querySelector('#message-title')?.value || '',
+    text: document.querySelector('#message-text')?.value || '',
     date: new Date().toISOString()
   };
   await push(ref(db, 'messages'), message);
-  document.querySelector('#add-message-form').reset();
+  document.querySelector('#add-message-form')?.reset();
   sendNotification('Nouveau message', `${message.title}: ${message.text}`);
 });
 
-document.querySelector('#add-auto-message-form').addEventListener('submit', async (e) => {
+document.querySelector('#add-auto-message-form')?.addEventListener('submit', async (e) => {
   e.preventDefault();
   if (!currentUser || currentUser.role !== 'admin') return;
   const autoMessage = {
-    name: document.querySelector('#auto-message-name').value,
-    text: document.querySelector('#auto-message-text').value,
-    datetime: new Date(`${document.querySelector('#auto-message-date').value}T${document.querySelector('#auto-message-time').value}`).toISOString()
+    name: document.querySelector('#auto-message-name')?.value || '',
+    text: document.querySelector('#auto-message-text')?.value || '',
+    datetime: new Date(`${document.querySelector('#auto-message-date')?.value}T${document.querySelector('#auto-message-time')?.value}`).toISOString()
   };
   await push(ref(db, 'autoMessages'), autoMessage);
-  document.querySelector('#add-auto-message-form').reset();
+  document.querySelector('#add-auto-message-form')?.reset();
 });
 
-document.querySelector('#add-note-form').addEventListener('submit', async (e) => {
+document.querySelector('#add-note-form')?.addEventListener('submit', async (e) => {
   e.preventDefault();
   if (!currentUser || currentUser.role !== 'admin') return;
   const note = {
-    theme: document.querySelector('#note-theme').value,
-    text: document.querySelector('#note-text').value
+    theme: document.querySelector('#note-theme')?.value || '',
+    text: document.querySelector('#note-text')?.value || ''
   };
   await push(ref(db, 'notes'), note);
-  document.querySelector('#add-note-form').reset();
+  document.querySelector('#add-note-form')?.reset();
 });
 
-document.querySelector('#add-internal-doc-form').addEventListener('submit', async (e) => {
+document.querySelector('#add-internal-doc-form')?.addEventListener('submit', async (e) => {
   e.preventDefault();
   if (!currentUser || currentUser.role !== 'admin') return;
-  const file = document.querySelector('#internal-doc').files[0];
-  if (file) {
-    const fileRef = storageRef(storage, `internalDocs/${Date.now()}_${file.name}`);
-    await uploadBytes(fileRef, file);
-    const url = await getDownloadURL(fileRef);
-    await push(ref(db, 'internalDocs'), { name: file.name, url, category: document.querySelector('#internal-doc-category').value });
-    document.querySelector('#add-internal-doc-form').reset();
-  }
+  const file = document.querySelector('#internal-doc')?.files[0];
+  if (!file) return;
+  const fileRef = storageRef(storage, `internalDocs/${Date.now()}_${file.name}`);
+  await uploadBytes(fileRef, file);
+  const url = await getDownloadURL(fileRef);
+  await push(ref(db, 'internalDocs'), { name: file.name, url, category: document.querySelector('#internal-doc-category')?.value || '' });
+  document.querySelector('#add-internal-doc-form')?.reset();
 });
 
-document.querySelector('#add-president-file-form').addEventListener('submit', async (e) => {
+document.querySelector('#add-president-file-form')?.addEventListener('submit', async (e) => {
   e.preventDefault();
   if (!currentUser || currentUser.role !== 'president') return;
-  const file = document.querySelector('#president-file').files[0];
-  if (file) {
-    const fileRef = storageRef(storage, `presidentFiles/${Date.now()}_${file.name}`);
-    await uploadBytes(fileRef, file);
-    const url = await getDownloadURL(fileRef);
-    await push(ref(db, 'presidentFiles'), { name: file.name, url, category: document.querySelector('#president-file-category').value });
-    document.querySelector('#add-president-file-form').reset();
-  }
+  const file = document.querySelector('#president-file')?.files[0];
+  if (!file) return;
+  const fileRef = storageRef(storage, `presidentFiles/${Date.now()}_${file.name}`);
+  await uploadBytes(fileRef, file);
+  const url = await getDownloadURL(fileRef);
+  await push(ref(db, 'presidentFiles'), { name: file.name, url, category: document.querySelector('#president-file-category')?.value || '' });
+  document.querySelector('#add-president-file-form')?.reset();
 });
 
-document.querySelector('#add-secretary-file-form').addEventListener('submit', async (e) => {
+document.querySelector('#add-secretary-file-form')?.addEventListener('submit', async (e) => {
   e.preventDefault();
   if (!currentUser || currentUser.role !== 'secretaire') return;
-  const file = document.querySelector('#secretary-file').files[0];
-  if (file) {
-    const fileRef = storageRef(storage, `secretaryFiles/${Date.now()}_${file.name}`);
-    await uploadBytes(fileRef, file);
-    const url = await getDownloadURL(fileRef);
-    await push(ref(db, 'secretaryFiles'), { name: file.name, url, category: document.querySelector('#secretary-file-category').value });
-    document.querySelector('#add-secretary-file-form').reset();
-  }
+  const file = document.querySelector('#secretary-file')?.files[0];
+  if (!file) return;
+  const fileRef = storageRef(storage, `secretaryFiles/${Date.now()}_${file.name}`);
+  await uploadBytes(fileRef, file);
+  const url = await getDownloadURL(fileRef);
+  await push(ref(db, 'secretaryFiles'), { name: file.name, url, category: document.querySelector('#secretary-file-category')?.value || '' });
+  document.querySelector('#add-secretary-file-form')?.reset();
 });
 
 function updateMembersList() {
-  const search = document.querySelector('#members-search').value.toLowerCase();
+  const search = document.querySelector('#members-search')?.value.toLowerCase() || '';
   const list = document.querySelector('#members-list');
+  if (!list) return;
   get(ref(db, 'members')).then((snapshot) => {
     const members = snapshot.val() || {};
     list.innerHTML = Object.values(members)
@@ -435,7 +482,7 @@ function updateMembersList() {
       .map(m => `
         <div class="member-card">
           <p><strong>${m.firstname} ${m.lastname}</strong></p>
-          <p><strong>Numéro :</strong> ${m.code}</p>
+          <p><strong>Numéro :</strong> MEMBRE${m.code}</p>
         </div>
       `).join('');
   });
@@ -443,15 +490,16 @@ function updateMembersList() {
 
 function updateContributionsAdminList() {
   if (!currentUser || currentUser.role !== 'tresorier') return;
-  const search = document.querySelector('#contributions-admin-search').value.toLowerCase();
+  const search = document.querySelector('#contributions-admin-search')?.value.toLowerCase() || '';
   const list = document.querySelector('#contributions-admin-list');
+  if (!list) return;
   get(ref(db, 'contributions')).then(async (contribSnapshot) => {
     const contributions = contribSnapshot.val() || {};
     const membersSnapshot = await get(ref(db, 'members'));
     const members = membersSnapshot.val() || {};
-    list.innerHTML = Object.values(contributions)
-      .filter(c => c.name.toLowerCase().includes(search))
-      .map(c => `
+    list.innerHTML = Object.entries(contributions)
+      .filter(([_, c]) => c.name.toLowerCase().includes(search))
+      .map(([key, c]) => `
         <div class="contribution-card">
           <h4>${c.name} (${c.amount} FCFA)</h4>
           ${Object.values(members).map(m => `
@@ -460,8 +508,8 @@ function updateContributionsAdminList() {
               ${c.years.map(year => `
                 <h5>${year}</h5>
                 ${['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'].map((month, i) => `
-                  <input type="checkbox" ${m.contributions[c.name]?.[year]?.[i] ? 'checked' : ''} onchange="updateMonthlyPayment('${m.code}', '${c.name}', '${year}', ${i}, this.checked)">
-                  <label>${month}</label>
+                  <input type="checkbox" id="contrib-${m.code}-${key}-${year}-${i}" ${m.contributions[c.name]?.[year]?.[i] ? 'checked' : ''} onchange="updateMonthlyPayment('${m.code}', '${c.name}', '${year}', ${i}, this.checked)">
+                  <label for="contrib-${m.code}-${key}-${year}-${i}">${month}</label>
                 `).join('')}
                 <p>Payé: ${m.contributions[c.name]?.[year]?.map((p, i) => p ? ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'][i] : '').filter(Boolean).join(', ') || ''}</p>
                 <p>Non payé: ${m.contributions[c.name]?.[year]?.map((p, i) => !p ? ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'][i] : '').filter(Boolean).join(', ') || ''}</p>
@@ -478,6 +526,7 @@ async function updateMonthlyPayment(memberCode, contributionName, year, monthInd
   const memberRef = ref(db, `members/${memberCode}`);
   const snapshot = await get(memberRef);
   const member = snapshot.val();
+  if (!member) return;
   if (!member.contributions[contributionName]) {
     member.contributions[contributionName] = {};
   }
@@ -490,8 +539,9 @@ async function updateMonthlyPayment(memberCode, contributionName, year, monthInd
 }
 
 function updateEditMembersList() {
-  const search = document.querySelector('#edit-member-search').value.toLowerCase();
+  const search = document.querySelector('#edit-member-search')?.value.toLowerCase() || '';
   const list = document.querySelector('#edit-members-list');
+  if (!list) return;
   get(ref(db, 'members')).then((snapshot) => {
     const members = snapshot.val() || {};
     list.innerHTML = Object.values(members)
@@ -510,31 +560,29 @@ function updateEditMembersList() {
 function editMember(code) {
   get(ref(db, `members/${code}`)).then((snapshot) => {
     const member = snapshot.val();
-    document.querySelector('#new-member-firstname').value = member.firstname;
-    document.querySelector('#new-member-lastname').value = member.lastname;
-    document.querySelector('#new-member-age').value = member.age || '';
-    document.querySelector('#new-member-dob').value = member.dob || '';
-    document.querySelector('#new-member-birthplace').value = member.birthplace || '';
-    document.querySelector('#new-member-email').value = member.email || '';
-    document.querySelector('#new-member-activity').value = member.activity || '';
-    document.querySelector('#new-member-address').value = member.address || '';
-    document.querySelector('#new-member-phone').value = member.phone || '';
-    document.querySelector('#new-member-residence').value = member.residence || '';
-    document.querySelector('#new-member-role').value = member.role;
-    document.querySelector('#new-member-status').value = member.status;
+    if (!member) return;
+    const fields = ['firstname', 'lastname', 'age', 'dob', 'birthplace', 'email', 'activity', 'address', 'phone', 'residence', 'role', 'status'];
+    fields.forEach(field => {
+      const element = document.querySelector(`#new-member-${field}`);
+      if (element) element.value = member[field] || '';
+    });
     showTab('add-member');
   });
 }
 
 function deleteMember(code) {
   if (!currentUser || currentUser.role !== 'admin') return;
-  document.querySelector('#delete-member-form').dataset.memberCode = code;
-  document.querySelector('#delete-member-form').style.display = 'block';
+  const form = document.querySelector('#delete-member-form');
+  if (form) {
+    form.dataset.memberCode = code;
+    form.style.display = 'block';
+  }
 }
 
 function updateEventsList() {
-  const search = document.querySelector('#events-search').value.toLowerCase();
+  const search = document.querySelector('#events-search')?.value.toLowerCase() || '';
   const list = document.querySelector('#events-list');
+  if (!list) return;
   get(ref(db, 'events')).then((snapshot) => {
     const events = snapshot.val() || {};
     list.innerHTML = Object.values(events)
@@ -551,8 +599,9 @@ function updateEventsList() {
 }
 
 function updateEventsAdminList() {
-  const search = document.querySelector('#events-admin-search').value.toLowerCase();
+  const search = document.querySelector('#events-admin-search')?.value.toLowerCase() || '';
   const list = document.querySelector('#events-admin-list');
+  if (!list) return;
   get(ref(db, 'events')).then((snapshot) => {
     const events = snapshot.val() || {};
     list.innerHTML = Object.entries(events)
@@ -576,6 +625,7 @@ async function deleteEvent(key) {
 
 function updateGalleryContent() {
   const content = document.querySelector('#gallery-content');
+  if (!content) return;
   get(ref(db, 'gallery')).then((snapshot) => {
     const gallery = snapshot.val() || {};
     content.innerHTML = Object.values(gallery)
@@ -588,8 +638,9 @@ function updateGalleryContent() {
 }
 
 function updateGalleryAdminList() {
-  const search = document.querySelector('#gallery-admin-search').value.toLowerCase();
+  const search = document.querySelector('#gallery-admin-search')?.value.toLowerCase() || '';
   const list = document.querySelector('#gallery-admin-list');
+  if (!list) return;
   get(ref(db, 'gallery')).then((snapshot) => {
     const gallery = snapshot.val() || {};
     list.innerHTML = Object.entries(gallery)
@@ -610,6 +661,7 @@ async function deleteGalleryItem(key) {
 
 function updateMessagesList() {
   const list = document.querySelector('#messages-list');
+  if (!list) return;
   get(ref(db, 'messages')).then((snapshot) => {
     const messages = snapshot.val() || {};
     list.innerHTML = Object.values(messages)
@@ -624,8 +676,9 @@ function updateMessagesList() {
 }
 
 function updateMessagesAdminList() {
-  const search = document.querySelector('#messages-admin-search').value.toLowerCase();
+  const search = document.querySelector('#messages-admin-search')?.value.toLowerCase() || '';
   const list = document.querySelector('#messages-admin-list');
+  if (!list) return;
   get(ref(db, 'messages')).then((snapshot) => {
     const messages = snapshot.val() || {};
     list.innerHTML = Object.entries(messages)
@@ -648,6 +701,7 @@ async function deleteMessage(key) {
 
 function updateMessagePopups() {
   const popups = document.querySelector('#message-popups');
+  if (!popups) return;
   get(ref(db, 'messages')).then((snapshot) => {
     const messages = snapshot.val() || {};
     popups.innerHTML = Object.entries(messages)
@@ -680,8 +734,9 @@ function checkAutoMessages() {
 }
 
 function updateAutoMessagesList() {
-  const search = document.querySelector('#auto-messages-search').value.toLowerCase();
+  const search = document.querySelector('#auto-messages-search')?.value.toLowerCase() || '';
   const list = document.querySelector('#auto-messages-list');
+  if (!list) return;
   get(ref(db, 'autoMessages')).then((snapshot) => {
     const autoMessages = snapshot.val() || {};
     list.innerHTML = Object.entries(autoMessages)
@@ -703,8 +758,9 @@ async function deleteAutoMessage(key) {
 }
 
 function updateNotesList() {
-  const search = document.querySelector('#notes-search').value.toLowerCase();
+  const search = document.querySelector('#notes-search')?.value.toLowerCase() || '';
   const list = document.querySelector('#notes-list');
+  if (!list) return;
   get(ref(db, 'notes')).then((snapshot) => {
     const notes = snapshot.val() || {};
     list.innerHTML = Object.entries(notes)
@@ -724,8 +780,9 @@ async function deleteNote(key) {
 }
 
 function updateInternalDocsList() {
-  const search = document.querySelector('#internal-docs-search').value.toLowerCase();
+  const search = document.querySelector('#internal-docs-search')?.value.toLowerCase() || '';
   const list = document.querySelector('#internal-docs-list');
+  if (!list) return;
   get(ref(db, 'internalDocs')).then((snapshot) => {
     const internalDocs = snapshot.val() || {};
     list.innerHTML = Object.entries(internalDocs)
@@ -746,8 +803,9 @@ async function deleteInternalDoc(key) {
 }
 
 function updatePresidentFilesList() {
-  const search = document.querySelector('#president-files-search').value.toLowerCase();
+  const search = document.querySelector('#president-files-search')?.value.toLowerCase() || '';
   const list = document.querySelector('#president-files-list');
+  if (!list) return;
   get(ref(db, 'presidentFiles')).then((snapshot) => {
     const presidentFiles = snapshot.val() || {};
     list.innerHTML = Object.entries(presidentFiles)
@@ -768,8 +826,9 @@ async function deletePresidentFile(key) {
 }
 
 function updateSecretaryFilesList() {
-  const search = document.querySelector('#secretary-files-search').value.toLowerCase();
+  const search = document.querySelector('#secretary-files-search')?.value.toLowerCase() || '';
   const list = document.querySelector('#secretary-files-list');
+  if (!list) return;
   get(ref(db, 'secretaryFiles')).then((snapshot) => {
     const secretaryFiles = snapshot.val() || {};
     list.innerHTML = Object.entries(secretaryFiles)
@@ -790,8 +849,9 @@ async function deleteSecretaryFile(key) {
 }
 
 function updateSuggestionsList() {
-  const search = document.querySelector('#suggestions-search').value.toLowerCase();
+  const search = document.querySelector('#suggestions-search')?.value.toLowerCase() || '';
   const list = document.querySelector('#suggestions-list');
+  if (!list) return;
   get(ref(db, 'suggestions')).then((snapshot) => {
     const suggestions = snapshot.val() || {};
     list.innerHTML = Object.entries(suggestions)
@@ -811,8 +871,9 @@ async function deleteSuggestion(key) {
 }
 
 function updateCoranContent() {
-  const search = document.querySelector('#coran-search').value.toLowerCase();
+  const search = document.querySelector('#coran-search')?.value.toLowerCase() || '';
   const content = document.querySelector('#coran-content');
+  if (!content) return;
   content.innerHTML = Array(30).fill()
     .map((_, i) => ({ juz: `Juz' ${i + 1}`, id: i + 1 }))
     .filter(j => j.juz.toLowerCase().includes(search))
@@ -820,8 +881,9 @@ function updateCoranContent() {
 }
 
 function updateLibraryContent() {
-  const search = document.querySelector('#library-search').value.toLowerCase();
+  const search = document.querySelector('#library-search')?.value.toLowerCase() || '';
   const content = document.querySelector('#library-content');
+  if (!content) return;
   get(ref(db, 'library')).then((snapshot) => {
     const library = snapshot.val() || {};
     content.innerHTML = Object.values(library)
@@ -839,6 +901,7 @@ function updatePersonalInfo() {
   if (!currentUser) return;
   const info = document.querySelector('#personal-info');
   const contributions = document.querySelector('#personal-contributions');
+  if (!info || !contributions) return;
   get(ref(db, `members/${currentUser.code}`)).then((snapshot) => {
     const member = snapshot.val();
     if (!member) return;
@@ -874,6 +937,11 @@ function updatePersonalInfo() {
 }
 
 function updateStats() {
+  const totalAmountCanvas = document.getElementById('stats-total-amount');
+  const membersCanvas = document.getElementById('stats-members');
+  const statusCanvas = document.getElementById('stats-status');
+  const contributionsCanvas = document.getElementById('stats-contributions');
+  if (!totalAmountCanvas || !membersCanvas || !statusCanvas || !contributionsCanvas) return;
   get(ref(db, 'members')).then((memberSnapshot) => {
     get(ref(db, 'contributions')).then((contribSnapshot) => {
       const members = memberSnapshot.val() || {};
@@ -893,7 +961,7 @@ function updateStats() {
         });
       }).length;
 
-      new Chart(document.getElementById('stats-total-amount'), {
+      new Chart(totalAmountCanvas, {
         type: 'bar',
         data: {
           labels: ['Somme totale'],
@@ -901,7 +969,7 @@ function updateStats() {
         }
       });
 
-      new Chart(document.getElementById('stats-members'), {
+      new Chart(membersCanvas, {
         type: 'pie',
         data: {
           labels: ['Membres'],
@@ -909,7 +977,7 @@ function updateStats() {
         }
       });
 
-      new Chart(document.getElementById('stats-status'), {
+      new Chart(statusCanvas, {
         type: 'pie',
         data: {
           labels: ['Actifs', 'Inactifs', 'Liste noire'],
@@ -917,7 +985,7 @@ function updateStats() {
         }
       });
 
-      new Chart(document.getElementById('stats-contributions'), {
+      new Chart(contributionsCanvas, {
         type: 'bar',
         data: {
           labels: ['À jour', 'En retard'],
@@ -929,8 +997,9 @@ function updateStats() {
 }
 
 function updateCallMembersList() {
-  const search = document.querySelector('#video-calls-search').value.toLowerCase();
+  const search = document.querySelector('#video-calls-search')?.value.toLowerCase() || '';
   const list = document.querySelector('#members-call-list');
+  if (!list) return;
   get(ref(db, 'members')).then((snapshot) => {
     const members = snapshot.val() || {};
     list.innerHTML = Object.values(members)
@@ -938,7 +1007,7 @@ function updateCallMembersList() {
       .map(m => `
         <div class="member-card">
           <input type="checkbox" id="call-${m.code}" value="${m.code}" onchange="updateSelectedCallMembers('${m.code}', this.checked)">
-          <label for="call-${m.code}">${m.firstname} ${m.lastname} (${m.code})</label>
+          <label for="call-${m.code}">${m.firstname} ${m.lastname} (MEMBRE${m.code})</label>
         </div>
       `).join('');
   });
@@ -953,7 +1022,8 @@ function updateSelectedCallMembers(code, checked) {
 }
 
 function toggleCallAll() {
-  const checkAll = document.querySelector('#call-all').checked;
+  const checkAll = document.querySelector('#call-all')?.checked;
+  if (checkAll === undefined) return;
   get(ref(db, 'members')).then((snapshot) => {
     const members = snapshot.val() || {};
     selectedCallMembers = checkAll ? Object.keys(members) : [];
@@ -965,11 +1035,17 @@ function toggleCallAll() {
 
 function initVideoCall() {
   if (!currentUser || !['admin', 'tresorier', 'president', 'secretaire'].includes(currentUser.role)) {
-    document.querySelector('#video-call-container').innerHTML = '<p>Accès réservé aux membres du bureau.</p>';
+    const container = document.querySelector('#video-call-container');
+    if (container) {
+      container.innerHTML = '<p>Accès réservé aux membres du bureau.</p>';
+    }
     return;
   }
   updateCallMembersList();
-  document.querySelector('#video-call-container').innerHTML = '<p>Sélectionnez les membres à appeler ou cochez "Cocher tout".</p>';
+  const container = document.querySelector('#video-call-container');
+  if (container) {
+    container.innerHTML = '<p>Sélectionnez les membres à appeler ou cochez "Cocher tout".</p>';
+  }
 }
 
 function startCall(type) {
@@ -981,16 +1057,20 @@ function startCall(type) {
   const roomId = `ansar-room-${Date.now()}`;
   const token = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJodHRwczovL2FjY291bnRzLmFwcGVhci5pbiIsImF1ZCI6Imh0dHBzOi8vYXBpLmFwcGVhci5pbi92MSIsImV4cCI6OTAwNzE5OTI1NDc0MDk5MSwiaWF0IjoxNzUyNzQzMzY5LCJvcmdhbml6YXRpb25JZCI6MzIwMzY3LCJqdGkiOiJmYzdmMjhiYS0xZTViLTRhYjAtOGQwZi1kZWNjNzAxYzkyNzAifQ.2WXwlPQj_-Da17X3IXJrVFYfiAsGlxzaRftPiG5oFWI';
   const videoCallContainer = document.querySelector('#video-call-container');
-  const roomUrl = `https://ansar-almouyassar.whereby.com/${roomId}?token=${token}&${type === 'audio' ? 'audioOnly=true' : ''}&displayName=${currentUser.firstname || 'Admin'} ${currentUser.lastname || ''}`;
-  videoCallContainer.innerHTML = `<whereby-embed room="${roomUrl}"></whereby-embed>`;
-  alert(`${type === 'video' ? 'Appel vidéo' : 'Appel audio'} démarré avec ${selectedCallMembers.length} membre(s).`);
+  if (videoCallContainer) {
+    const roomUrl = `https://ansar-almouyassar.whereby.com/${roomId}?token=${token}&${type === 'audio' ? 'audioOnly=true' : ''}&displayName=${currentUser.firstname || 'Admin'} ${currentUser.lastname || ''}`;
+    videoCallContainer.innerHTML = `<whereby-embed room="${roomUrl}"></whereby-embed>`;
+    alert(`${type === 'video' ? 'Appel vidéo' : 'Appel audio'} démarré avec ${selectedCallMembers.length} membre(s).`);
+  }
 }
 
 function payViaWave() {
+  console.log('Bouton Wave cliqué');
   window.open('https://pay.wave.com/m/M_sn_dyIw8DZWV46K/c/sn/?amount=2000', '_blank');
 }
 
 function payViaOrangeMoney() {
+  console.log('Bouton Orange Money cliqué');
   window.open('https://sugu.orange-sonatel.com/mp/dc3PQ0eEeSdcKQWVvcTH2Z', '_blank');
 }
 
@@ -1006,21 +1086,38 @@ function sendNotification(title, body) {
   }
 }
 
-document.querySelector('#members-search').addEventListener('input', updateMembersList);
-document.querySelector('#events-search').addEventListener('input', updateEventsList);
-document.querySelector('#coran-search').addEventListener('input', updateCoranContent);
-document.querySelector('#library-search').addEventListener('input', updateLibraryContent);
-document.querySelector('#edit-member-search').addEventListener('input', updateEditMembersList);
-document.querySelector('#gallery-admin-search').addEventListener('input', updateGalleryAdminList);
-document.querySelector('#events-admin-search').addEventListener('input', updateEventsAdminList);
-document.querySelector('#messages-admin-search').addEventListener('input', updateMessagesAdminList);
-document.querySelector('#notes-search').addEventListener('input', updateNotesList);
-document.querySelector('#internal-docs-search').addEventListener('input', updateInternalDocsList);
-document.querySelector('#suggestions-search').addEventListener('input', updateSuggestionsList);
-document.querySelector('#video-calls-search').addEventListener('input', updateCallMembersList);
-document.querySelector('#auto-messages-search').addEventListener('input', updateAutoMessagesList);
-document.querySelector('#contributions-admin-search').addEventListener('input', updateContributionsAdminList);
-document.querySelector('#president-files-search').addEventListener('input', updatePresidentFilesList);
-document.querySelector('#secretary-files-search').addEventListener('input', updateSecretaryFilesList);
+function attachEventListeners() {
+  document.querySelector('#members-search')?.addEventListener('input', updateMembersList);
+  document.querySelector('#events-search')?.addEventListener('input', updateEventsList);
+  document.querySelector('#coran-search')?.addEventListener('input', updateCoranContent);
+  document.querySelector('#library-search')?.addEventListener('input', updateLibraryContent);
+  document.querySelector('#edit-member-search')?.addEventListener('input', updateEditMembersList);
+  document.querySelector('#gallery-admin-search')?.addEventListener('input', updateGalleryAdminList);
+  document.querySelector('#events-admin-search')?.addEventListener('input', updateEventsAdminList);
+  document.querySelector('#messages-admin-search')?.addEventListener('input', updateMessagesAdminList);
+  document.querySelector('#notes-search')?.addEventListener('input', updateNotesList);
+  document.querySelector('#internal-docs-search')?.addEventListener('input', updateInternalDocsList);
+  document.querySelector('#suggestions-search')?.addEventListener('input', updateSuggestionsList);
+  document.querySelector('#video-calls-search')?.addEventListener('input', updateCallMembersList);
+  document.querySelector('#auto-messages-search')?.addEventListener('input', updateAutoMessagesList);
+  document.querySelector('#contributions-admin-search')?.addEventListener('input', updateContributionsAdminList);
+  document.querySelector('#president-files-search')?.addEventListener('input', updatePresidentFilesList);
+  document.querySelector('#secretary-files-search')?.addEventListener('input', updateSecretaryFilesList);
+  document.querySelector('#settings-language')?.addEventListener('change', () => console.log('Langue changée'));
+  document.querySelector('.settings-icon')?.addEventListener('click', () => {
+    console.log('Icône paramètres cliquée');
+    showPage('settings');
+  });
+  document.querySelector('button[onclick="toggleTheme()"]')?.addEventListener('click', toggleTheme);
+  document.querySelector('button[onclick="payViaWave()"]')?.addEventListener('click', payViaWave);
+  document.querySelector('button[onclick="payViaOrangeMoney()"]')?.addEventListener('click', payViaOrangeMoney);
+  document.querySelector('button[onclick="logoutPersonal()"]')?.addEventListener('click', logoutPersonal);
+  document.querySelector('button[onclick="clearChatHistory()"]')?.addEventListener('click', clearChatHistory);
+  document.querySelector('button[onclick="enterSecret()"]')?.addEventListener('click', enterSecret);
+}
 
-initDB();
+document.addEventListener('DOMContentLoaded', () => {
+  console.log('Document chargé, initialisation des écouteurs d’événements');
+  attachEventListeners();
+  initDB();
+});
