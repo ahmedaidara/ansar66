@@ -1,153 +1,113 @@
-const DB_NAME = 'ansar-almouyassar';
-const DB_VERSION = 1;
-let db;
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js';
+import { getDatabase, ref, set, get, onValue, remove, push } from 'https://www.gstatic.com/firebasejs/9.22.0/firebase-database.js';
+import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from 'https://www.gstatic.com/firebasejs/9.22.0/firebase-storage.js';
 
-const members = [
-  {
-    code: '001',
-    firstname: 'Mouhamed',
-    lastname: 'Niang',
-    age: 45,
-    dob: '01012000',
-    birthplace: 'Dakar',
-    photo: 'assets/images/default-photo.png',
-    email: 'mouhamed.niang@example.com',
-    activity: 'Président',
-    address: '123 Rue Principale, Dakar',
-    phone: '+221123456789',
-    residence: 'Dakar',
-    role: 'president',
-    status: 'actif',
-    contributions: { '2023': Array(12).fill(false), '2024': Array(12).fill(false), '2025': Array(12).fill(false) }
-  }
-];
-const contributions = [{ name: 'Mensuelle', amount: 2000, years: ['2023', '2024', '2025'] }];
-const events = [{ name: 'Conférence Annuelle', description: 'Conférence 2025', image: 'assets/images/conference.jpg', datetime: '2025-08-17T15:00:00' }];
-const suggestions = [];
-const gallery = [];
-const messages = [];
-const autoMessages = [];
-const notes = [];
-const internalDocs = [];
-const presidentFiles = [];
-const secretaryFiles = [];
-const library = [];
+const firebaseConfig = {
+  apiKey: "AIzaSyB7-fXR59CqNMyYgZTDAdBNpMTE_GkcOlA",
+  authDomain: "ansar-93d9e.firebaseapp.com",
+  projectId: "ansar-93d9e",
+  storageBucket: "ansar-93d9e.firebasestorage.app",
+  messagingSenderId: "697623655771",
+  appId: "1:697623655771:web:2487489b5825ab211f567e",
+  measurementId: "G-N3LBBHM2N0"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
+const storage = getStorage(app);
+
 const presidentCode = '0000';
 let currentUser = null;
 let isChatOpen = false;
 let selectedCallMembers = [];
 
-function openDB() {
-  return new Promise((resolve, reject) => {
-    const request = indexedDB.open(DB_NAME, DB_VERSION);
-    request.onupgradeneeded = (event) => {
-      db = event.target.result;
-      db.createObjectStore('members', { keyPath: 'code' });
-      db.createObjectStore('contributions', { keyPath: 'name' });
-      db.createObjectStore('events', { autoIncrement: true });
-      db.createObjectStore('suggestions', { autoIncrement: true });
-      db.createObjectStore('gallery', { autoIncrement: true });
-      db.createObjectStore('messages', { autoIncrement: true });
-      db.createObjectStore('autoMessages', { autoIncrement: true });
-      db.createObjectStore('notes', { autoIncrement: true });
-      db.createObjectStore('internalDocs', { autoIncrement: true });
-      db.createObjectStore('presidentFiles', { autoIncrement: true });
-      db.createObjectStore('secretaryFiles', { autoIncrement: true });
-      db.createObjectStore('library', { autoIncrement: true });
-    };
-    request.onsuccess = (event) => {
-      db = event.target.result;
-      resolve();
-    };
-    request.onerror = (event) => reject(event.target.error);
-  });
-}
-
-function saveToDB(storeName, data) {
-  return new Promise((resolve, reject) => {
-    const transaction = db.transaction([storeName], 'readwrite');
-    const store = transaction.objectStore(storeName);
-    const request = Array.isArray(data) ? data.forEach(item => store.put(item)) : store.put(data);
-    transaction.oncomplete = () => resolve();
-    transaction.onerror = () => reject(transaction.error);
-  });
-}
-
-function loadFromDB(storeName) {
-  return new Promise((resolve, reject) => {
-    const transaction = db.transaction([storeName], 'readonly');
-    const store = transaction.objectStore(storeName);
-    const request = store.getAll();
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error);
-  });
-}
+const defaultData = {
+  members: [
+    {
+      code: '001',
+      firstname: 'Mouhamed',
+      lastname: 'Niang',
+      age: 45,
+      dob: '01012000',
+      birthplace: 'Dakar',
+      photo: 'assets/images/default-photo.png',
+      email: 'mouhamed.niang@example.com',
+      activity: 'Président',
+      address: '123 Rue Principale, Dakar',
+      phone: '+221123456789',
+      residence: 'Dakar',
+      role: 'president',
+      status: 'actif',
+      contributions: { 'Mensuelle': { '2023': Array(12).fill(false), '2024': Array(12).fill(false), '2025': Array(12).fill(false) } }
+    }
+  ],
+  contributions: [{ name: 'Mensuelle', amount: 2000, years: ['2023', '2024', '2025'] }],
+  events: [{ name: 'Conférence Annuelle', description: 'Conférence 2025', image: 'assets/images/conference.jpg', datetime: '2025-08-17T15:00:00' }],
+  suggestions: [],
+  gallery: [],
+  messages: [],
+  autoMessages: [],
+  notes: [],
+  internalDocs: [],
+  presidentFiles: [],
+  secretaryFiles: [],
+  library: []
+};
 
 async function initDB() {
-  await openDB();
-  const storedMembers = await loadFromDB('members');
-  if (storedMembers.length > 0) members.splice(0, members.length, ...storedMembers);
-  const storedContributions = await loadFromDB('contributions');
-  if (storedContributions.length > 0) contributions.splice(0, contributions.length, ...storedContributions);
-  const storedEvents = await loadFromDB('events');
-  if (storedEvents.length > 0) events.splice(0, events.length, ...storedEvents);
-  const storedSuggestions = await loadFromDB('suggestions');
-  if (storedSuggestions.length > 0) suggestions.splice(0, suggestions.length, ...storedSuggestions);
-  const storedGallery = await loadFromDB('gallery');
-  if (storedGallery.length > 0) gallery.splice(0, gallery.length, ...storedGallery);
-  const storedMessages = await loadFromDB('messages');
-  if (storedMessages.length > 0) messages.splice(0, messages.length, ...storedMessages);
-  const storedAutoMessages = await loadFromDB('autoMessages');
-  if (storedAutoMessages.length > 0) autoMessages.splice(0, autoMessages.length, ...storedAutoMessages);
-  const storedNotes = await loadFromDB('notes');
-  if (storedNotes.length > 0) notes.splice(0, notes.length, ...storedNotes);
-  const storedInternalDocs = await loadFromDB('internalDocs');
-  if (storedInternalDocs.length > 0) internalDocs.splice(0, internalDocs.length, ...storedInternalDocs);
-  const storedPresidentFiles = await loadFromDB('presidentFiles');
-  if (storedPresidentFiles.length > 0) presidentFiles.splice(0, presidentFiles.length, ...storedPresidentFiles);
-  const storedSecretaryFiles = await loadFromDB('secretaryFiles');
-  if (storedSecretaryFiles.length > 0) secretaryFiles.splice(0, secretaryFiles.length, ...storedSecretaryFiles);
-  const storedLibrary = await loadFromDB('library');
-  if (storedLibrary.length > 0) library.splice(0, library.length, ...storedLibrary);
+  const collections = ['members', 'contributions', 'events', 'suggestions', 'gallery', 'messages', 'autoMessages', 'notes', 'internalDocs', 'presidentFiles', 'secretaryFiles', 'library'];
+  for (const collection of collections) {
+    const snapshot = await get(ref(db, collection));
+    if (!snapshot.exists()) {
+      await set(ref(db, collection), defaultData[collection]);
+    }
+    onValue(ref(db, collection), (snapshot) => {
+      const data = snapshot.val() || defaultData[collection];
+      updateUI(collection, data);
+    });
+  }
+}
+
+function updateUI(collection, data) {
+  switch (collection) {
+    case 'members': updateMembersList(); updateEditMembersList(); updateCallMembersList(); updateStats(); break;
+    case 'contributions': updateContributionsAdminList(); updatePersonalInfo(); updateStats(); break;
+    case 'events': updateEventsList(); updateEventsAdminList(); updateEventCountdowns(); break;
+    case 'suggestions': updateSuggestionsList(); break;
+    case 'gallery': updateGalleryContent(); updateGalleryAdminList(); break;
+    case 'messages': updateMessagesList(); updateMessagesAdminList(); updateMessagePopups(); break;
+    case 'autoMessages': updateAutoMessagesList(); break;
+    case 'notes': updateNotesList(); break;
+    case 'internalDocs': updateInternalDocsList(); break;
+    case 'presidentFiles': updatePresidentFilesList(); break;
+    case 'secretaryFiles': updateSecretaryFilesList(); break;
+    case 'library': updateLibraryContent(); break;
+  }
 }
 
 function showPage(pageId) {
   document.querySelectorAll('.page').forEach(page => page.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active'));
-  document.querySelector(`#${pageId}`).classList.add('active');
-  document.querySelector(`a[onclick="showPage('${pageId}')"]`).classList.add('active');
-  if (pageId === 'members') updateMembersList();
-  if (pageId === 'events') updateEventsList();
-  if (pageId === 'gallery') updateGalleryContent();
-  if (pageId === 'messages') updateMessagesList();
-  if (pageId === 'coran') updateCoranContent();
-  if (pageId === 'personal') {
-    document.querySelector('#personal-login').style.display = currentUser && currentUser.role !== 'admin' ? 'none' : 'block';
-    document.querySelector('#personal-content').style.display = currentUser && currentUser.role !== 'admin' ? 'block' : 'none';
-    if (currentUser && currentUser.role !== 'admin') updatePersonalInfo();
+  const pageElement = document.querySelector(`#${pageId}`);
+  if (pageElement) {
+    pageElement.classList.add('active');
+    document.querySelector(`a[onclick="showPage('${pageId}')"]`)?.classList.add('active');
   }
-  if (pageId === 'library') updateLibraryContent();
-  if (pageId === 'home') updateMessagePopups();
+  if (pageId === 'personal' && currentUser && currentUser.role !== 'admin') {
+    document.querySelector('#personal-login').style.display = 'none';
+    document.querySelector('#personal-content').style.display = 'block';
+    updatePersonalInfo();
+  }
 }
 
 function showTab(tabId) {
   document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
   document.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('active'));
-  document.querySelector(`#${tabId}`).classList.add('active');
-  document.querySelector(`button[onclick="showTab('${tabId}')"]`).classList.add('active');
-  if (tabId === 'edit-member') updateEditMembersList();
-  if (tabId === 'gallery-admin') updateGalleryAdminList();
-  if (tabId === 'events-admin') updateEventsAdminList();
-  if (tabId === 'messages-admin') updateMessagesAdminList();
-  if (tabId === 'notes') updateNotesList();
-  if (tabId === 'internal-docs') updateInternalDocsList();
-  if (tabId === 'suggestions-admin') updateSuggestionsList();
-  if (tabId === 'stats') updateStats();
-  if (tabId === 'video-calls') initVideoCall();
-  if (tabId === 'auto-messages') updateAutoMessagesList();
-  if (tabId === 'treasurer') updateContributionsAdminList();
-  if (tabId === 'president') updatePresidentFilesList();
-  if (tabId === 'secretary') updateSecretaryFilesList();
+  const tabElement = document.querySelector(`#${tabId}`);
+  if (tabElement) {
+    tabElement.classList.add('active');
+    document.querySelector(`button[onclick="showTab('${tabId}')"]`)?.classList.add('active');
+  }
 }
 
 function toggleTheme() {
@@ -155,30 +115,31 @@ function toggleTheme() {
 }
 
 function updateEventCountdowns() {
-  const countdowns = document.getElementById('event-countdowns');
-  countdowns.innerHTML = events.map(event => {
-    const eventDate = new Date(event.datetime);
-    const now = new Date();
-    const diff = eventDate - now;
-    if (diff <= 0 && diff > -30 * 60 * 1000) {
-      return `<div id="countdown-${event.name}">Événement ${event.name} : EN COURS</div>`;
-    } else if (diff <= -30 * 60 * 1000) {
-      return '';
-    }
-    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-    const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-    const seconds = Math.floor((diff % (1000 * 60)) / 1000);
-    return `<div id="countdown-${event.name}">Événement ${event.name} : JOUR J - ${days}j ${hours}h ${minutes}m ${seconds}s</div>`;
-  }).join('');
+  get(ref(db, 'events')).then((snapshot) => {
+    const events = snapshot.val() || [];
+    const countdowns = document.getElementById('event-countdowns');
+    countdowns.innerHTML = Object.values(events).map(event => {
+      const eventDate = new Date(event.datetime);
+      const now = new Date();
+      const diff = eventDate - now;
+      if (diff <= 0 && diff > -30 * 60 * 1000) {
+        return `<div id="countdown-${event.name}">Événement ${event.name} : EN COURS</div>`;
+      } else if (diff <= -30 * 60 * 1000) {
+        return '';
+      }
+      const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+      const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+      const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+      return `<div id="countdown-${event.name}">Événement ${event.name} : JOUR J - ${days}j ${hours}h ${minutes}m ${seconds}s</div>`;
+    }).join('');
+  });
 }
 
 setInterval(updateEventCountdowns, 1000);
 setInterval(checkAutoMessages, 60000);
 
-document.querySelector('#settings-language').addEventListener('change', (e) => {
-  // Language change handled in settings
-});
+document.querySelector('#settings-language').addEventListener('change', (e) => {});
 
 function toggleChatbot() {
   isChatOpen = !isChatOpen;
@@ -187,6 +148,14 @@ function toggleChatbot() {
     document.querySelector('#chatbot-messages').innerHTML = '<div class="chatbot-message received">Bienvenue ! Posez une question ou utilisez un mot-clé comme "association", "membre", "cotisation", etc.</div>';
   }
 }
+
+document.addEventListener('click', (e) => {
+  const chatbot = document.querySelector('#chatbot');
+  const chatbotButton = document.querySelector('.chatbot-button');
+  if (isChatOpen && !chatbot.contains(e.target) && !chatbotButton.contains(e.target)) {
+    toggleChatbot();
+  }
+});
 
 document.querySelector('.chatbot-button').addEventListener('click', toggleChatbot);
 
@@ -200,6 +169,9 @@ document.querySelector('#chatbot-form').addEventListener('submit', (e) => {
   const secretCodes = ['ADMIN12301012000', '00000000', '11111111', '22222222'];
   if (secretCodes.includes(message)) {
     document.querySelector('#secret-entry').style.display = 'block';
+    setTimeout(() => {
+      document.querySelector('#secret-entry').style.display = 'none';
+    }, 30000);
   } else {
     const response = getChatbotResponse(message);
     messages.innerHTML += `<div class="chatbot-message received">${response}</div>`;
@@ -207,6 +179,10 @@ document.querySelector('#chatbot-form').addEventListener('submit', (e) => {
   input.value = '';
   messages.scrollTop = messages.scrollHeight;
 });
+
+function clearChatHistory() {
+  document.querySelector('#chatbot-messages').innerHTML = '<div class="chatbot-message received">Historique effacé. Posez une question !</div>';
+}
 
 function enterSecret() {
   const password = document.querySelector('#secret-password').value;
@@ -220,40 +196,39 @@ function enterSecret() {
     toggleChatbot();
   } else if (treasurerCodes.includes(password)) {
     currentUser = { code: 'TRESORIER', role: 'tresorier' };
-    showPage('secret');
-    showTab('treasurer');
+    showPage('treasurer');
+    showTab('treasurer-contributions');
     toggleChatbot();
   } else if (presidentCodes.includes(password)) {
     currentUser = { code: 'PRESIDENT', role: 'president' };
-    showPage('secret');
-    showTab('president');
+    showPage('president');
+    showTab('president-files');
     toggleChatbot();
   } else if (secretaryCodes.includes(password)) {
     currentUser = { code: 'SECRETAIRE', role: 'secretaire' };
-    showPage('secret');
-    showTab('secretary');
+    showPage('secretary');
+    showTab('secretary-files');
     toggleChatbot();
   } else {
     document.querySelector('#chatbot-messages').innerHTML += '<div class="chatbot-message received">Mot de passe incorrect.</div>';
   }
 }
 
-document.querySelector('#personal-login-form').addEventListener('submit', (e) => {
+document.querySelector('#personal-login-form').addEventListener('submit', async (e) => {
   e.preventDefault();
   const code = document.querySelector('#personal-member-code').value;
   const password = document.querySelector('#personal-password').value;
   const errorMessage = document.querySelector('#personal-error-message');
-
   const dateRegex = /^(0[1-9]|[12][0-9]|3[01])(0[1-9]|1[012])(19|20)\d\d$/;
   if (!dateRegex.test(password)) {
     errorMessage.textContent = 'Mot de passe invalide (format : JJMMAAAA)';
     errorMessage.style.display = 'block';
     return;
   }
-
-  const member = members.find(m => m.code === code && m.dob === password);
-  if (member) {
-    currentUser = member;
+  const snapshot = await get(ref(db, `members/${code}`));
+  const member = snapshot.val();
+  if (member && member.dob === password) {
+    currentUser = { ...member, code };
     document.querySelector('#personal-title').textContent = `Espace de ${member.firstname} ${member.lastname}`;
     document.querySelector('#personal-login').style.display = 'none';
     document.querySelector('#personal-content').style.display = 'block';
@@ -274,14 +249,17 @@ function logoutPersonal() {
 document.querySelector('#add-member-form').addEventListener('submit', async (e) => {
   e.preventDefault();
   if (!currentUser || currentUser.role !== 'admin') return;
+  const snapshot = await get(ref(db, 'members'));
+  const members = snapshot.val() || {};
+  const newCode = `${(Object.keys(members).length + 1).toString().padStart(3, '0')}`;
   const member = {
-    code: `${(members.length + 1).toString().padStart(3, '0')}`,
+    code: newCode,
     firstname: document.querySelector('#new-member-firstname').value,
     lastname: document.querySelector('#new-member-lastname').value,
     age: parseInt(document.querySelector('#new-member-age').value) || null,
     dob: document.querySelector('#new-member-dob').value || null,
     birthplace: document.querySelector('#new-member-birthplace').value || null,
-    photo: document.querySelector('#new-member-photo').files[0] ? URL.createObjectURL(document.querySelector('#new-member-photo').files[0]) : 'assets/images/default-photo.png',
+    photo: 'assets/images/default-photo.png',
     email: document.querySelector('#new-member-email').value || null,
     activity: document.querySelector('#new-member-activity').value || null,
     address: document.querySelector('#new-member-address').value || null,
@@ -289,21 +267,16 @@ document.querySelector('#add-member-form').addEventListener('submit', async (e) 
     residence: document.querySelector('#new-member-residence').value || null,
     role: document.querySelector('#new-member-role').value || 'membre',
     status: document.querySelector('#new-member-status').value || 'actif',
-    contributions: Object.fromEntries(contributions.filter(c => c.name === 'Mensuelle').map(c => {
-      const years = {};
-      c.years.forEach(year => {
-        years[year] = Array(12).fill(false);
-      });
-      return [c.name, years];
-    }))
+    contributions: { 'Mensuelle': { '2023': Array(12).fill(false), '2024': Array(12).fill(false), '2025': Array(12).fill(false) } }
   };
-  members.push(member);
-  await saveToDB('members', members);
+  const file = document.querySelector('#new-member-photo').files[0];
+  if (file) {
+    const fileRef = storageRef(storage, `members/${newCode}/${file.name}`);
+    await uploadBytes(fileRef, file);
+    member.photo = await getDownloadURL(fileRef);
+  }
+  await set(ref(db, `members/${newCode}`), member);
   document.querySelector('#add-member-form').reset();
-  updateMembersList();
-  updateEditMembersList();
-  updateCallMembersList();
-  updateStats();
 });
 
 document.querySelector('#delete-member-form').addEventListener('submit', async (e) => {
@@ -314,16 +287,8 @@ document.querySelector('#delete-member-form').addEventListener('submit', async (
     return;
   }
   const memberCode = document.querySelector('#delete-member-form').dataset.memberCode;
-  const index = members.findIndex(m => m.code === memberCode);
-  if (index !== -1) {
-    members.splice(index, 1);
-    await saveToDB('members', members);
-    updateMembersList();
-    updateEditMembersList();
-    updateCallMembersList();
-    updateStats();
-    document.querySelector('#delete-member-form').style.display = 'none';
-  }
+  await remove(ref(db, `members/${memberCode}`));
+  document.querySelector('#delete-member-form').style.display = 'none';
 });
 
 document.querySelector('#add-contribution-form').addEventListener('submit', async (e) => {
@@ -333,28 +298,24 @@ document.querySelector('#add-contribution-form').addEventListener('submit', asyn
   const amount = parseInt(document.querySelector('#contribution-amount').value);
   const currentYear = new Date().getFullYear().toString();
   const contribution = { name, amount, years: [currentYear] };
-  contributions.push(contribution);
-  members.forEach(member => {
+  await push(ref(db, 'contributions'), contribution);
+  const snapshot = await get(ref(db, 'members'));
+  const members = snapshot.val() || {};
+  for (const [code, member] of Object.entries(members)) {
     if (!member.contributions[name]) {
       member.contributions[name] = { [currentYear]: Array(12).fill(false) };
+      await set(ref(db, `members/${code}`), member);
     }
-  });
-  await saveToDB('contributions', contributions);
-  await saveToDB('members', members);
+  }
   document.querySelector('#add-contribution-form').reset();
-  updateContributionsAdminList();
-  updatePersonalInfo();
-  updateStats();
 });
 
 document.querySelector('#suggestion-form').addEventListener('submit', async (e) => {
   e.preventDefault();
   if (!currentUser) return;
   const text = document.querySelector('#suggestion-text').value;
-  suggestions.push({ member: `${currentUser.firstname} ${currentUser.lastname}`, text });
-  await saveToDB('suggestions', suggestions);
+  await push(ref(db, 'suggestions'), { member: `${currentUser.firstname} ${currentUser.lastname}`, text });
   document.querySelector('#suggestion-form').reset();
-  updateSuggestionsList();
 });
 
 document.querySelector('#add-gallery-form').addEventListener('submit', async (e) => {
@@ -362,11 +323,11 @@ document.querySelector('#add-gallery-form').addEventListener('submit', async (e)
   if (!currentUser || currentUser.role !== 'admin') return;
   const file = document.querySelector('#gallery-file').files[0];
   if (file) {
-    gallery.push({ type: file.type.startsWith('image') ? 'image' : 'video', url: URL.createObjectURL(file), name: file.name });
-    await saveToDB('gallery', gallery);
+    const fileRef = storageRef(storage, `gallery/${Date.now()}_${file.name}`);
+    await uploadBytes(fileRef, file);
+    const url = await getDownloadURL(fileRef);
+    await push(ref(db, 'gallery'), { type: file.type.startsWith('image') ? 'image' : 'video', url, name: file.name });
     document.querySelector('#add-gallery-form').reset();
-    updateGalleryContent();
-    updateGalleryAdminList();
   }
 });
 
@@ -377,29 +338,29 @@ document.querySelector('#add-event-form').addEventListener('submit', async (e) =
     name: document.querySelector('#event-name').value,
     description: document.querySelector('#event-description').value,
     datetime: new Date(`${document.querySelector('#event-date').value}T${document.querySelector('#event-time').value}`).toISOString(),
-    image: document.querySelector('#event-file').files[0] ? URL.createObjectURL(document.querySelector('#event-file').files[0]) : ''
+    image: ''
   };
-  events.push(event);
-  await saveToDB('events', events);
+  const file = document.querySelector('#event-file').files[0];
+  if (file) {
+    const fileRef = storageRef(storage, `events/${Date.now()}_${file.name}`);
+    await uploadBytes(fileRef, file);
+    event.image = await getDownloadURL(fileRef);
+  }
+  await push(ref(db, 'events'), event);
   document.querySelector('#add-event-form').reset();
-  updateEventsList();
-  updateEventsAdminList();
-  updateEventCountdowns();
 });
 
 document.querySelector('#add-message-form').addEventListener('submit', async (e) => {
   e.preventDefault();
   if (!currentUser || currentUser.role !== 'admin') return;
-  const title = document.querySelector('#message-title').value;
-  const text = document.querySelector('#message-text').value;
-  const message = { title, text, date: new Date().toISOString() };
-  messages.unshift(message);
-  await saveToDB('messages', messages);
+  const message = {
+    title: document.querySelector('#message-title').value,
+    text: document.querySelector('#message-text').value,
+    date: new Date().toISOString()
+  };
+  await push(ref(db, 'messages'), message);
   document.querySelector('#add-message-form').reset();
-  updateMessagesList();
-  updateMessagesAdminList();
-  updateMessagePopups();
-  sendNotification('Nouveau message', `${title}: ${text}`);
+  sendNotification('Nouveau message', `${message.title}: ${message.text}`);
 });
 
 document.querySelector('#add-auto-message-form').addEventListener('submit', async (e) => {
@@ -410,10 +371,8 @@ document.querySelector('#add-auto-message-form').addEventListener('submit', asyn
     text: document.querySelector('#auto-message-text').value,
     datetime: new Date(`${document.querySelector('#auto-message-date').value}T${document.querySelector('#auto-message-time').value}`).toISOString()
   };
-  autoMessages.push(autoMessage);
-  await saveToDB('autoMessages', autoMessages);
+  await push(ref(db, 'autoMessages'), autoMessage);
   document.querySelector('#add-auto-message-form').reset();
-  updateAutoMessagesList();
 });
 
 document.querySelector('#add-note-form').addEventListener('submit', async (e) => {
@@ -423,10 +382,8 @@ document.querySelector('#add-note-form').addEventListener('submit', async (e) =>
     theme: document.querySelector('#note-theme').value,
     text: document.querySelector('#note-text').value
   };
-  notes.push(note);
-  await saveToDB('notes', notes);
+  await push(ref(db, 'notes'), note);
   document.querySelector('#add-note-form').reset();
-  updateNotesList();
 });
 
 document.querySelector('#add-internal-doc-form').addEventListener('submit', async (e) => {
@@ -434,10 +391,11 @@ document.querySelector('#add-internal-doc-form').addEventListener('submit', asyn
   if (!currentUser || currentUser.role !== 'admin') return;
   const file = document.querySelector('#internal-doc').files[0];
   if (file) {
-    internalDocs.push({ name: file.name, url: URL.createObjectURL(file), category: document.querySelector('#internal-doc-category').value });
-    await saveToDB('internalDocs', internalDocs);
+    const fileRef = storageRef(storage, `internalDocs/${Date.now()}_${file.name}`);
+    await uploadBytes(fileRef, file);
+    const url = await getDownloadURL(fileRef);
+    await push(ref(db, 'internalDocs'), { name: file.name, url, category: document.querySelector('#internal-doc-category').value });
     document.querySelector('#add-internal-doc-form').reset();
-    updateInternalDocsList();
   }
 });
 
@@ -446,10 +404,11 @@ document.querySelector('#add-president-file-form').addEventListener('submit', as
   if (!currentUser || currentUser.role !== 'president') return;
   const file = document.querySelector('#president-file').files[0];
   if (file) {
-    presidentFiles.push({ name: file.name, url: URL.createObjectURL(file), category: document.querySelector('#president-file-category').value });
-    await saveToDB('presidentFiles', presidentFiles);
+    const fileRef = storageRef(storage, `presidentFiles/${Date.now()}_${file.name}`);
+    await uploadBytes(fileRef, file);
+    const url = await getDownloadURL(fileRef);
+    await push(ref(db, 'presidentFiles'), { name: file.name, url, category: document.querySelector('#president-file-category').value });
     document.querySelector('#add-president-file-form').reset();
-    updatePresidentFilesList();
   }
 });
 
@@ -458,94 +417,113 @@ document.querySelector('#add-secretary-file-form').addEventListener('submit', as
   if (!currentUser || currentUser.role !== 'secretaire') return;
   const file = document.querySelector('#secretary-file').files[0];
   if (file) {
-    secretaryFiles.push({ name: file.name, url: URL.createObjectURL(file), category: document.querySelector('#secretary-file-category').value });
-    await saveToDB('secretaryFiles', secretaryFiles);
+    const fileRef = storageRef(storage, `secretaryFiles/${Date.now()}_${file.name}`);
+    await uploadBytes(fileRef, file);
+    const url = await getDownloadURL(fileRef);
+    await push(ref(db, 'secretaryFiles'), { name: file.name, url, category: document.querySelector('#secretary-file-category').value });
     document.querySelector('#add-secretary-file-form').reset();
-    updateSecretaryFilesList();
   }
 });
 
 function updateMembersList() {
   const search = document.querySelector('#members-search').value.toLowerCase();
   const list = document.querySelector('#members-list');
-  list.innerHTML = members
-    .filter(m => `${m.firstname} ${m.lastname}`.toLowerCase().includes(search) || m.code.toLowerCase().includes(search))
-    .map(m => `
-      <div class="member-card">
-        <p><strong>${m.firstname} ${m.lastname}</strong></p>
-        <p><strong>Numéro :</strong> ${m.code}</p>
-      </div>
-    `).join('');
+  get(ref(db, 'members')).then((snapshot) => {
+    const members = snapshot.val() || {};
+    list.innerHTML = Object.values(members)
+      .filter(m => `${m.firstname} ${m.lastname}`.toLowerCase().includes(search) || m.code.toLowerCase().includes(search))
+      .map(m => `
+        <div class="member-card">
+          <p><strong>${m.firstname} ${m.lastname}</strong></p>
+          <p><strong>Numéro :</strong> ${m.code}</p>
+        </div>
+      `).join('');
+  });
 }
 
 function updateContributionsAdminList() {
   if (!currentUser || currentUser.role !== 'tresorier') return;
   const search = document.querySelector('#contributions-admin-search').value.toLowerCase();
   const list = document.querySelector('#contributions-admin-list');
-  list.innerHTML = contributions
-    .filter(c => c.name.toLowerCase().includes(search))
-    .map(c => `
-      <div class="contribution-card">
-        <h4>${c.name} (${c.amount} FCFA)</h4>
-        ${members.map(m => `
-          <div>
-            <p>${m.firstname} ${m.lastname}</p>
-            ${c.years.map(year => `
-              <h5>${year}</h5>
-              ${['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'].map((month, i) => `
-                <input type="checkbox" ${m.contributions[c.name][year][i] ? 'checked' : ''} onchange="updateMonthlyPayment('${m.code}', '${c.name}', '${year}', ${i}, this.checked)">
-                <label>${month}</label>
+  get(ref(db, 'contributions')).then(async (contribSnapshot) => {
+    const contributions = contribSnapshot.val() || {};
+    const membersSnapshot = await get(ref(db, 'members'));
+    const members = membersSnapshot.val() || {};
+    list.innerHTML = Object.values(contributions)
+      .filter(c => c.name.toLowerCase().includes(search))
+      .map(c => `
+        <div class="contribution-card">
+          <h4>${c.name} (${c.amount} FCFA)</h4>
+          ${Object.values(members).map(m => `
+            <div>
+              <p>${m.firstname} ${m.lastname}</p>
+              ${c.years.map(year => `
+                <h5>${year}</h5>
+                ${['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'].map((month, i) => `
+                  <input type="checkbox" ${m.contributions[c.name]?.[year]?.[i] ? 'checked' : ''} onchange="updateMonthlyPayment('${m.code}', '${c.name}', '${year}', ${i}, this.checked)">
+                  <label>${month}</label>
+                `).join('')}
+                <p>Payé: ${m.contributions[c.name]?.[year]?.map((p, i) => p ? ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'][i] : '').filter(Boolean).join(', ') || ''}</p>
+                <p>Non payé: ${m.contributions[c.name]?.[year]?.map((p, i) => !p ? ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'][i] : '').filter(Boolean).join(', ') || ''}</p>
               `).join('')}
-              <p>Payé: ${m.contributions[c.name][year].map((p, i) => p ? ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'][i] : '').filter(Boolean).join(', ')}</p>
-              <p>Non payé: ${m.contributions[c.name][year].map((p, i) => !p ? ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'][i] : '').filter(Boolean).join(', ')}</p>
-            `).join('')}
-          </div>
-        `).join('')}
-      </div>
-    `).join('');
+            </div>
+          `).join('')}
+        </div>
+      `).join('');
+  });
 }
 
 async function updateMonthlyPayment(memberCode, contributionName, year, monthIndex, paid) {
   if (!currentUser || currentUser.role !== 'tresorier') return;
-  const member = members.find(m => m.code === memberCode);
+  const memberRef = ref(db, `members/${memberCode}`);
+  const snapshot = await get(memberRef);
+  const member = snapshot.val();
+  if (!member.contributions[contributionName]) {
+    member.contributions[contributionName] = {};
+  }
+  if (!member.contributions[contributionName][year]) {
+    member.contributions[contributionName][year] = Array(12).fill(false);
+  }
   member.contributions[contributionName][year][monthIndex] = paid;
-  await saveToDB('members', members);
-  updateContributionsAdminList();
-  updatePersonalInfo();
-  updateStats();
+  await set(memberRef, member);
   sendNotification('Mise à jour cotisation', `Cotisation ${contributionName} pour ${member.firstname} ${member.lastname} (${year}, ${['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'][monthIndex]}) marquée comme ${paid ? 'payée' : 'non payée'}.`);
 }
 
 function updateEditMembersList() {
   const search = document.querySelector('#edit-member-search').value.toLowerCase();
   const list = document.querySelector('#edit-members-list');
-  list.innerHTML = members
-    .filter(m => `${m.firstname} ${m.lastname}`.toLowerCase().includes(search) || m.code.toLowerCase().includes(search))
-    .map(m => `
-      <div class="member-card">
-        <p><strong>Prénom :</strong> ${m.firstname}</p>
-        <p><strong>Nom :</strong> ${m.lastname}</p>
-        <button class="cta-button" onclick="editMember('${m.code}')">Modifier</button>
-        <button class="cta-button" onclick="deleteMember('${m.code}')">Supprimer</button>
-      </div>
-    `).join('');
+  get(ref(db, 'members')).then((snapshot) => {
+    const members = snapshot.val() || {};
+    list.innerHTML = Object.values(members)
+      .filter(m => `${m.firstname} ${m.lastname}`.toLowerCase().includes(search) || m.code.toLowerCase().includes(search))
+      .map(m => `
+        <div class="member-card">
+          <p><strong>Prénom :</strong> ${m.firstname}</p>
+          <p><strong>Nom :</strong> ${m.lastname}</p>
+          <button class="cta-button" onclick="editMember('${m.code}')">Modifier</button>
+          <button class="cta-button" onclick="deleteMember('${m.code}')">Supprimer</button>
+        </div>
+      `).join('');
+  });
 }
 
 function editMember(code) {
-  const member = members.find(m => m.code === code);
-  document.querySelector('#new-member-firstname').value = member.firstname;
-  document.querySelector('#new-member-lastname').value = member.lastname;
-  document.querySelector('#new-member-age').value = member.age || '';
-  document.querySelector('#new-member-dob').value = member.dob || '';
-  document.querySelector('#new-member-birthplace').value = member.birthplace || '';
-  document.querySelector('#new-member-email').value = member.email || '';
-  document.querySelector('#new-member-activity').value = member.activity || '';
-  document.querySelector('#new-member-address').value = member.address || '';
-  document.querySelector('#new-member-phone').value = member.phone || '';
-  document.querySelector('#new-member-residence').value = member.residence || '';
-  document.querySelector('#new-member-role').value = member.role;
-  document.querySelector('#new-member-status').value = member.status;
-  showTab('add-member');
+  get(ref(db, `members/${code}`)).then((snapshot) => {
+    const member = snapshot.val();
+    document.querySelector('#new-member-firstname').value = member.firstname;
+    document.querySelector('#new-member-lastname').value = member.lastname;
+    document.querySelector('#new-member-age').value = member.age || '';
+    document.querySelector('#new-member-dob').value = member.dob || '';
+    document.querySelector('#new-member-birthplace').value = member.birthplace || '';
+    document.querySelector('#new-member-email').value = member.email || '';
+    document.querySelector('#new-member-activity').value = member.activity || '';
+    document.querySelector('#new-member-address').value = member.address || '';
+    document.querySelector('#new-member-phone').value = member.phone || '';
+    document.querySelector('#new-member-residence').value = member.residence || '';
+    document.querySelector('#new-member-role').value = member.role;
+    document.querySelector('#new-member-status').value = member.status;
+    showTab('add-member');
+  });
 }
 
 function deleteMember(code) {
@@ -557,143 +535,146 @@ function deleteMember(code) {
 function updateEventsList() {
   const search = document.querySelector('#events-search').value.toLowerCase();
   const list = document.querySelector('#events-list');
-  list.innerHTML = events
-    .filter(e => e.name.toLowerCase().includes(search) || e.description.toLowerCase().includes(search))
-    .map(e => `
-      <div class="event-card">
-        <h4>${e.name}</h4>
-        <p>${e.description}</p>
-        <p>Date: ${new Date(e.datetime).toLocaleString()}</p>
-        ${e.image ? `<img src="${e.image}" alt="${e.name}" style="max-width: 100%; border-radius: 10px;">` : ''}
-      </div>
-    `).join('');
+  get(ref(db, 'events')).then((snapshot) => {
+    const events = snapshot.val() || {};
+    list.innerHTML = Object.values(events)
+      .filter(e => e.name.toLowerCase().includes(search) || e.description.toLowerCase().includes(search))
+      .map(e => `
+        <div class="event-card">
+          <h4>${e.name}</h4>
+          <p>${e.description}</p>
+          <p>Date: ${new Date(e.datetime).toLocaleString()}</p>
+          ${e.image ? `<img src="${e.image}" alt="${e.name}" style="max-width: 100%; border-radius: 10px;">` : ''}
+        </div>
+      `).join('');
+  });
 }
 
 function updateEventsAdminList() {
   const search = document.querySelector('#events-admin-search').value.toLowerCase();
   const list = document.querySelector('#events-admin-list');
-  list.innerHTML = events
-    .filter(e => e.name.toLowerCase().includes(search) || e.description.toLowerCase().includes(search))
-    .map((e, index) => `
-      <div class="event-card">
-        <h4>${e.name}</h4>
-        <p>${e.description}</p>
-        <p>Date: ${new Date(e.datetime).toLocaleString()}</p>
-        ${e.image ? `<img src="${e.image}" alt="${e.name}" style="max-width: 100%; border-radius: 10px;">` : ''}
-        <button class="cta-button" onclick="deleteEvent(${index})">Supprimer</button>
-      </div>
-    `).join('');
+  get(ref(db, 'events')).then((snapshot) => {
+    const events = snapshot.val() || {};
+    list.innerHTML = Object.entries(events)
+      .filter(([_, e]) => e.name.toLowerCase().includes(search) || e.description.toLowerCase().includes(search))
+      .map(([key, e]) => `
+        <div class="event-card">
+          <h4>${e.name}</h4>
+          <p>${e.description}</p>
+          <p>Date: ${new Date(e.datetime).toLocaleString()}</p>
+          ${e.image ? `<img src="${e.image}" alt="${e.name}" style="max-width: 100%; border-radius: 10px;">` : ''}
+          <button class="cta-button" onclick="deleteEvent('${key}')">Supprimer</button>
+        </div>
+      `).join('');
+  });
 }
 
-async function deleteEvent(index) {
+async function deleteEvent(key) {
   if (!currentUser || currentUser.role !== 'admin') return;
-  events.splice(index, 1);
-  await saveToDB('events', events);
-  updateEventsList();
-  updateEventsAdminList();
-  updateEventCountdowns();
+  await remove(ref(db, `events/${key}`));
 }
 
 function updateGalleryContent() {
   const content = document.querySelector('#gallery-content');
-  content.innerHTML = gallery
-    .map(g => `
-      <div>
-        ${g.type === 'image' ? `<img src="${g.url}" alt="Galerie">` : `<video src="${g.url}" controls></video>`}
-      </div>
-    `).join('');
+  get(ref(db, 'gallery')).then((snapshot) => {
+    const gallery = snapshot.val() || {};
+    content.innerHTML = Object.values(gallery)
+      .map(g => `
+        <div>
+          ${g.type === 'image' ? `<img src="${g.url}" alt="Galerie">` : `<video src="${g.url}" controls></video>`}
+        </div>
+      `).join('');
+  });
 }
 
 function updateGalleryAdminList() {
   const search = document.querySelector('#gallery-admin-search').value.toLowerCase();
   const list = document.querySelector('#gallery-admin-list');
-  list.innerHTML = gallery
-    .filter(g => g.name.toLowerCase().includes(search))
-    .map((g, index) => `
-      <div>
-        ${g.type === 'image' ? `<img src="${g.url}" alt="Galerie" style="max-width: 100%; border-radius: 10px;">` : `<video src="${g.url}" controls style="max-width: 100%; border-radius: 10px;"></video>`}
-        <button class="cta-button" onclick="deleteGalleryItem(${index})">Supprimer</button>
-      </div>
-    `).join('');
+  get(ref(db, 'gallery')).then((snapshot) => {
+    const gallery = snapshot.val() || {};
+    list.innerHTML = Object.entries(gallery)
+      .filter(([_, g]) => g.name.toLowerCase().includes(search))
+      .map(([key, g]) => `
+        <div>
+          ${g.type === 'image' ? `<img src="${g.url}" alt="Galerie" style="max-width: 100%; border-radius: 10px;">` : `<video src="${g.url}" controls style="max-width: 100%; border-radius: 10px;"></video>`}
+          <button class="cta-button" onclick="deleteGalleryItem('${key}')">Supprimer</button>
+        </div>
+      `).join('');
+  });
 }
 
-async function deleteGalleryItem(index) {
+async function deleteGalleryItem(key) {
   if (!currentUser || currentUser.role !== 'admin') return;
-  gallery.splice(index, 1);
-  await saveToDB('gallery', gallery);
-  updateGalleryContent();
-  updateGalleryAdminList();
+  await remove(ref(db, `gallery/${key}`));
 }
 
 function updateMessagesList() {
   const list = document.querySelector('#messages-list');
-  list.innerHTML = messages
-    .map(m => `
-      <div class="message-card">
-        <h4>${m.title}</h4>
-        <p>${m.text}</p>
-        <p><small>${new Date(m.date).toLocaleString()}</small></p>
-      </div>
-    `).join('');
+  get(ref(db, 'messages')).then((snapshot) => {
+    const messages = snapshot.val() || {};
+    list.innerHTML = Object.values(messages)
+      .map(m => `
+        <div class="message-card">
+          <h4>${m.title}</h4>
+          <p>${m.text}</p>
+          <p><small>${new Date(m.date).toLocaleString()}</small></p>
+        </div>
+      `).join('');
+  });
 }
 
 function updateMessagesAdminList() {
   const search = document.querySelector('#messages-admin-search').value.toLowerCase();
   const list = document.querySelector('#messages-admin-list');
-  list.innerHTML = messages
-    .filter(m => m.title.toLowerCase().includes(search) || m.text.toLowerCase().includes(search))
-    .map((m, index) => `
-      <div class="message-card">
-        <h4>${m.title}</h4>
-        <p>${m.text}</p>
-        <p><small>${new Date(m.date).toLocaleString()}</small></p>
-        <button class="cta-button" onclick="deleteMessage(${index})">Supprimer</button>
-      </div>
-    `).join('');
+  get(ref(db, 'messages')).then((snapshot) => {
+    const messages = snapshot.val() || {};
+    list.innerHTML = Object.entries(messages)
+      .filter(([_, m]) => m.title.toLowerCase().includes(search) || m.text.toLowerCase().includes(search))
+      .map(([key, m]) => `
+        <div class="message-card">
+          <h4>${m.title}</h4>
+          <p>${m.text}</p>
+          <p><small>${new Date(m.date).toLocaleString()}</small></p>
+          <button class="cta-button" onclick="deleteMessage('${key}')">Supprimer</button>
+        </div>
+      `).join('');
+  });
 }
 
-async function deleteMessage(index) {
+async function deleteMessage(key) {
   if (!currentUser || currentUser.role !== 'admin') return;
-  messages.splice(index, 1);
-  await saveToDB('messages', messages);
-  updateMessagesList();
-  updateMessagesAdminList();
-  updateMessagePopups();
+  await remove(ref(db, `messages/${key}`));
 }
 
 function updateMessagePopups() {
   const popups = document.querySelector('#message-popups');
-  popups.innerHTML = messages
-    .map((m, index) => `
-      <div class="message-popup">
-        <h4>${m.title}</h4>
-        <p>${m.text}</p>
-        <button class="close-button" onclick="closeMessage(${index})"><span class="material-icons">close</span></button>
-      </div>
-    `).join('');
+  get(ref(db, 'messages')).then((snapshot) => {
+    const messages = snapshot.val() || {};
+    popups.innerHTML = Object.entries(messages)
+      .map(([key, m]) => `
+        <div class="message-popup">
+          <h4>${m.title}</h4>
+          <p>${m.text}</p>
+          <button class="close-button" onclick="closeMessage('${key}')"><span class="material-icons">close</span></button>
+        </div>
+      `).join('');
+  });
 }
 
-async function closeMessage(index) {
-  messages.splice(index, 1);
-  await saveToDB('messages', messages);
-  updateMessagesList();
-  updateMessagesAdminList();
-  updateMessagePopups();
+async function closeMessage(key) {
+  await remove(ref(db, `messages/${key}`));
 }
 
 function checkAutoMessages() {
-  const now = new Date();
-  autoMessages.forEach(async (m, index) => {
-    if (new Date(m.datetime) <= now) {
-      messages.unshift({ title: m.name, text: m.text, date: now.toISOString() });
-      await saveToDB('messages', messages);
-      autoMessages.splice(index, 1);
-      await saveToDB('autoMessages', autoMessages);
-      updateMessagesList();
-      updateMessagesAdminList();
-      updateMessagePopups();
-      updateAutoMessagesList();
-      sendNotification('Message automatisé', `${m.name}: ${m.text}`);
+  get(ref(db, 'autoMessages')).then(async (snapshot) => {
+    const autoMessages = snapshot.val() || {};
+    const now = new Date();
+    for (const [key, m] of Object.entries(autoMessages)) {
+      if (new Date(m.datetime) <= now) {
+        await push(ref(db, 'messages'), { title: m.name, text: m.text, date: now.toISOString() });
+        await remove(ref(db, `autoMessages/${key}`));
+        sendNotification('Message automatisé', `${m.name}: ${m.text}`);
+      }
     }
   });
 }
@@ -701,126 +682,132 @@ function checkAutoMessages() {
 function updateAutoMessagesList() {
   const search = document.querySelector('#auto-messages-search').value.toLowerCase();
   const list = document.querySelector('#auto-messages-list');
-  list.innerHTML = autoMessages
-    .filter(m => m.name.toLowerCase().includes(search) || m.text.toLowerCase().includes(search))
-    .map((m, index) => `
-      <div class="message-card">
-        <h4>${m.name}</h4>
-        <p>${m.text}</p>
-        <p>Date: ${new Date(m.datetime).toLocaleString()}</p>
-        <button class="cta-button" onclick="deleteAutoMessage(${index})">Supprimer</button>
-      </div>
-    `).join('');
+  get(ref(db, 'autoMessages')).then((snapshot) => {
+    const autoMessages = snapshot.val() || {};
+    list.innerHTML = Object.entries(autoMessages)
+      .filter(([_, m]) => m.name.toLowerCase().includes(search) || m.text.toLowerCase().includes(search))
+      .map(([key, m]) => `
+        <div class="message-card">
+          <h4>${m.name}</h4>
+          <p>${m.text}</p>
+          <p>Date: ${new Date(m.datetime).toLocaleString()}</p>
+          <button class="cta-button" onclick="deleteAutoMessage('${key}')">Supprimer</button>
+        </div>
+      `).join('');
+  });
 }
 
-async function deleteAutoMessage(index) {
+async function deleteAutoMessage(key) {
   if (!currentUser || currentUser.role !== 'admin') return;
-  autoMessages.splice(index, 1);
-  await saveToDB('autoMessages', autoMessages);
-  updateAutoMessagesList();
+  await remove(ref(db, `autoMessages/${key}`));
 }
 
 function updateNotesList() {
   const search = document.querySelector('#notes-search').value.toLowerCase();
   const list = document.querySelector('#notes-list');
-  list.innerHTML = notes
-    .filter(n => n.theme.toLowerCase().includes(search) || n.text.toLowerCase().includes(search))
-    .map((n, index) => `
-      <div class="note-card">
-        <p><strong>${n.theme}</strong>: ${n.text}</p>
-        <button class="cta-button" onclick="deleteNote(${index})">Supprimer</button>
-      </div>
-    `).join('');
+  get(ref(db, 'notes')).then((snapshot) => {
+    const notes = snapshot.val() || {};
+    list.innerHTML = Object.entries(notes)
+      .filter(([_, n]) => n.theme.toLowerCase().includes(search) || n.text.toLowerCase().includes(search))
+      .map(([key, n]) => `
+        <div class="note-card">
+          <p><strong>${n.theme}</strong>: ${n.text}</p>
+          <button class="cta-button" onclick="deleteNote('${key}')">Supprimer</button>
+        </div>
+      `).join('');
+  });
 }
 
-async function deleteNote(index) {
+async function deleteNote(key) {
   if (!currentUser || currentUser.role !== 'admin') return;
-  notes.splice(index, 1);
-  await saveToDB('notes', notes);
-  updateNotesList();
+  await remove(ref(db, `notes/${key}`));
 }
 
 function updateInternalDocsList() {
   const search = document.querySelector('#internal-docs-search').value.toLowerCase();
   const list = document.querySelector('#internal-docs-list');
-  list.innerHTML = internalDocs
-    .filter(d => d.name.toLowerCase().includes(search) || d.category.toLowerCase().includes(search))
-    .map((d, index) => `
-      <div class="file-card">
-        <p><strong>Catégorie :</strong> ${d.category}</p>
-        <a href="${d.url}" download>${d.name}</a>
-        <button class="cta-button" onclick="deleteInternalDoc(${index})">Supprimer</button>
-      </div>
-    `).join('');
+  get(ref(db, 'internalDocs')).then((snapshot) => {
+    const internalDocs = snapshot.val() || {};
+    list.innerHTML = Object.entries(internalDocs)
+      .filter(([_, d]) => d.name.toLowerCase().includes(search) || d.category.toLowerCase().includes(search))
+      .map(([key, d]) => `
+        <div class="file-card">
+          <p><strong>Catégorie :</strong> ${d.category}</p>
+          <a href="${d.url}" download>${d.name}</a>
+          <button class="cta-button" onclick="deleteInternalDoc('${key}')">Supprimer</button>
+        </div>
+      `).join('');
+  });
 }
 
-async function deleteInternalDoc(index) {
+async function deleteInternalDoc(key) {
   if (!currentUser || currentUser.role !== 'admin') return;
-  internalDocs.splice(index, 1);
-  await saveToDB('internalDocs', internalDocs);
-  updateInternalDocsList();
+  await remove(ref(db, `internalDocs/${key}`));
 }
 
 function updatePresidentFilesList() {
   const search = document.querySelector('#president-files-search').value.toLowerCase();
   const list = document.querySelector('#president-files-list');
-  list.innerHTML = presidentFiles
-    .filter(f => f.name.toLowerCase().includes(search) || f.category.toLowerCase().includes(search))
-    .map((f, index) => `
-      <div class="file-card">
-        <p><strong>Catégorie :</strong> ${f.category}</p>
-        <a href="${f.url}" download>${f.name}</a>
-        <button class="cta-button" onclick="deletePresidentFile(${index})">Supprimer</button>
-      </div>
-    `).join('');
+  get(ref(db, 'presidentFiles')).then((snapshot) => {
+    const presidentFiles = snapshot.val() || {};
+    list.innerHTML = Object.entries(presidentFiles)
+      .filter(([_, f]) => f.name.toLowerCase().includes(search) || f.category.toLowerCase().includes(search))
+      .map(([key, f]) => `
+        <div class="file-card">
+          <p><strong>Catégorie :</strong> ${f.category}</p>
+          <a href="${f.url}" download>${f.name}</a>
+          <button class="cta-button" onclick="deletePresidentFile('${key}')">Supprimer</button>
+        </div>
+      `).join('');
+  });
 }
 
-async function deletePresidentFile(index) {
+async function deletePresidentFile(key) {
   if (!currentUser || currentUser.role !== 'president') return;
-  presidentFiles.splice(index, 1);
-  await saveToDB('presidentFiles', presidentFiles);
-  updatePresidentFilesList();
+  await remove(ref(db, `presidentFiles/${key}`));
 }
 
 function updateSecretaryFilesList() {
   const search = document.querySelector('#secretary-files-search').value.toLowerCase();
   const list = document.querySelector('#secretary-files-list');
-  list.innerHTML = secretaryFiles
-    .filter(f => f.name.toLowerCase().includes(search) || f.category.toLowerCase().includes(search))
-    .map((f, index) => `
-      <div class="file-card">
-        <p><strong>Catégorie :</strong> ${f.category}</p>
-        <a href="${f.url}" download>${f.name}</a>
-        <button class="cta-button" onclick="deleteSecretaryFile(${index})">Supprimer</button>
-      </div>
-    `).join('');
+  get(ref(db, 'secretaryFiles')).then((snapshot) => {
+    const secretaryFiles = snapshot.val() || {};
+    list.innerHTML = Object.entries(secretaryFiles)
+      .filter(([_, f]) => f.name.toLowerCase().includes(search) || f.category.toLowerCase().includes(search))
+      .map(([key, f]) => `
+        <div class="file-card">
+          <p><strong>Catégorie :</strong> ${f.category}</p>
+          <a href="${f.url}" download>${f.name}</a>
+          <button class="cta-button" onclick="deleteSecretaryFile('${key}')">Supprimer</button>
+        </div>
+      `).join('');
+  });
 }
 
-async function deleteSecretaryFile(index) {
+async function deleteSecretaryFile(key) {
   if (!currentUser || currentUser.role !== 'secretaire') return;
-  secretaryFiles.splice(index, 1);
-  await saveToDB('secretaryFiles', secretaryFiles);
-  updateSecretaryFilesList();
+  await remove(ref(db, `secretaryFiles/${key}`));
 }
 
 function updateSuggestionsList() {
   const search = document.querySelector('#suggestions-search').value.toLowerCase();
   const list = document.querySelector('#suggestions-list');
-  list.innerHTML = suggestions
-    .filter(s => s.member.toLowerCase().includes(search) || s.text.toLowerCase().includes(search))
-    .map((s, index) => `
-      <div class="suggestion-card">
-        <p><strong>${s.member}</strong>: ${s.text}</p>
-        <button class="cta-button" onclick="deleteSuggestion(${index})">Supprimer</button>
-      </div>
-    `).join('');
+  get(ref(db, 'suggestions')).then((snapshot) => {
+    const suggestions = snapshot.val() || {};
+    list.innerHTML = Object.entries(suggestions)
+      .filter(([_, s]) => s.member.toLowerCase().includes(search) || s.text.toLowerCase().includes(search))
+      .map(([key, s]) => `
+        <div class="suggestion-card">
+          <p><strong>${s.member}</strong>: ${s.text}</p>
+          <button class="cta-button" onclick="deleteSuggestion('${key}')">Supprimer</button>
+        </div>
+      `).join('');
+  });
 }
 
-async function deleteSuggestion(index) {
+async function deleteSuggestion(key) {
   if (!currentUser || currentUser.role !== 'admin') return;
-  suggestions.splice(index, 1);
-  await saveToDB('suggestions', suggestions);
-  updateSuggestionsList();
+  await remove(ref(db, `suggestions/${key}`));
 }
 
 function updateCoranContent() {
@@ -835,97 +822,126 @@ function updateCoranContent() {
 function updateLibraryContent() {
   const search = document.querySelector('#library-search').value.toLowerCase();
   const content = document.querySelector('#library-content');
-  content.innerHTML = library
-    .filter(l => l.name.toLowerCase().includes(search) || l.category.toLowerCase().includes(search))
-    .map(l => `
-      <div class="file-card">
-        <p><strong>Catégorie :</strong> ${l.category}</p>
-        <a href="${l.url}" download>${l.name}</a>
-      </div>
-    `).join('');
+  get(ref(db, 'library')).then((snapshot) => {
+    const library = snapshot.val() || {};
+    content.innerHTML = Object.values(library)
+      .filter(l => l.name.toLowerCase().includes(search) || l.category.toLowerCase().includes(search))
+      .map(l => `
+        <div class="file-card">
+          <p><strong>Catégorie :</strong> ${l.category}</p>
+          <a href="${l.url}" download>${l.name}</a>
+        </div>
+      `).join('');
+  });
 }
 
 function updatePersonalInfo() {
   if (!currentUser) return;
   const info = document.querySelector('#personal-info');
   const contributions = document.querySelector('#personal-contributions');
-  info.innerHTML = `
-    <img src="${currentUser.photo}" alt="${currentUser.firstname} ${currentUser.lastname}" style="width: 100px; border-radius: 50%;">
-    <p><strong>Prénom :</strong> ${currentUser.firstname}</p>
-    <p><strong>Nom :</strong> ${currentUser.lastname}</p>
-    ${currentUser.age ? `<p><strong>Âge :</strong> ${currentUser.age}</p>` : ''}
-    ${currentUser.dob ? `<p><strong>Date de naissance :</strong> ${currentUser.dob}</p>` : ''}
-    ${currentUser.birthplace ? `<p><strong>Lieu de naissance :</strong> ${currentUser.birthplace}</p>` : ''}
-    ${currentUser.email ? `<p><strong>Email :</strong> ${currentUser.email}</p>` : ''}
-    ${currentUser.activity ? `<p><strong>Activité :</strong> ${currentUser.activity}</p>` : ''}
-    ${currentUser.address ? `<p><strong>Adresse :</strong> ${currentUser.address}</p>` : ''}
-    ${currentUser.phone ? `<p><strong>Téléphone :</strong> ${currentUser.phone}</p>` : ''}
-    ${currentUser.residence ? `<p><strong>Résidence :</strong> ${currentUser.residence}</p>` : ''}
-    <p><strong>Rôle :</strong> ${currentUser.role}</p>
-    <p><strong>Statut :</strong> ${currentUser.status}</p>
-  `;
-  contributions.innerHTML = Object.entries(currentUser.contributions).map(([name, years]) => `
-    <div class="contribution-card">
-      <p><strong>${name}</strong>: ${contributions.find(c => c.name === name).amount} FCFA</p>
-      ${Object.entries(years).map(([year, months]) => `
-        <p><strong>${year}</strong></p>
-        <p>Payé: ${months.map((p, i) => p ? ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'][i] : '').filter(Boolean).join(', ')}</p>
-        <p>Non payé: ${months.map((p, i) => !p ? ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'][i] : '').filter(Boolean).join(', ')}</p>
-      `).join('')}
-    </div>
-  `).join('');
+  get(ref(db, `members/${currentUser.code}`)).then((snapshot) => {
+    const member = snapshot.val();
+    if (!member) return;
+    info.innerHTML = `
+      <img src="${member.photo || 'assets/images/default-photo.png'}" alt="${member.firstname} ${member.lastname}" style="width: 100px; border-radius: 50%;">
+      <p><strong>Prénom :</strong> ${member.firstname}</p>
+      <p><strong>Nom :</strong> ${member.lastname}</p>
+      ${member.age ? `<p><strong>Âge :</strong> ${member.age}</p>` : ''}
+      ${member.dob ? `<p><strong>Date de naissance :</strong> ${member.dob}</p>` : ''}
+      ${member.birthplace ? `<p><strong>Lieu de naissance :</strong> ${member.birthplace}</p>` : ''}
+      ${member.email ? `<p><strong>Email :</strong> ${member.email}</p>` : ''}
+      ${member.activity ? `<p><strong>Activité :</strong> ${member.activity}</p>` : ''}
+      ${member.address ? `<p><strong>Adresse :</strong> ${member.address}</p>` : ''}
+      ${member.phone ? `<p><strong>Téléphone :</strong> ${member.phone}</p>` : ''}
+      ${member.residence ? `<p><strong>Résidence :</strong> ${member.residence}</p>` : ''}
+      <p><strong>Rôle :</strong> ${member.role}</p>
+      <p><strong>Statut :</strong> ${member.status}</p>
+    `;
+    get(ref(db, 'contributions')).then((contribSnapshot) => {
+      const contribs = contribSnapshot.val() || {};
+      contributions.innerHTML = Object.entries(member.contributions || {}).map(([name, years]) => `
+        <div class="contribution-card">
+          <p><strong>${name}</strong>: ${contribs[name]?.amount || 0} FCFA</p>
+          ${Object.entries(years).map(([year, months]) => `
+            <p><strong>${year}</strong></p>
+            <p>Payé: ${months.map((p, i) => p ? ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'][i] : '').filter(Boolean).join(', ')}</p>
+            <p>Non payé: ${months.map((p, i) => !p ? ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'][i] : '').filter(Boolean).join(', ')}</p>
+          `).join('')}
+        </div>
+      `).join('');
+    });
+  });
 }
 
 function updateStats() {
-  const totalAmount = members.reduce((sum, m) => sum + Object.values(m.contributions).reduce((s, years) => s + Object.values(years).reduce((t, months) => t + months.filter(p => p).length * contributions.find(c => c.name === Object.keys(m.contributions)[0]).amount, 0), 0), 0);
-  const membersCount = members.length;
-  const activeMembers = members.filter(m => m.status === 'actif').length;
-  const upToDateMembers = members.filter(m => Object.values(m.contributions).every(years => Object.values(years).every(months => months.every(p => p)))).length;
+  get(ref(db, 'members')).then((memberSnapshot) => {
+    get(ref(db, 'contributions')).then((contribSnapshot) => {
+      const members = memberSnapshot.val() || {};
+      const contributions = contribSnapshot.val() || {};
+      const totalAmount = Object.values(members).reduce((sum, m) => {
+        return sum + Object.entries(m.contributions || {}).reduce((s, [name, years]) => {
+          return s + Object.values(years).reduce((t, months) => {
+            return t + (Array.isArray(months) ? months.filter(p => p).length * (contributions[name]?.amount || 0) : 0);
+          }, 0);
+        }, 0);
+      }, 0);
+      const membersCount = Object.keys(members).length;
+      const activeMembers = Object.values(members).filter(m => m.status === 'actif').length;
+      const upToDateMembers = Object.values(members).filter(m => {
+        return Object.values(m.contributions || {}).every(years => {
+          return Object.values(years).every(months => Array.isArray(months) && months.every(p => p));
+        });
+      }).length;
 
-  new Chart(document.getElementById('stats-total-amount'), {
-    type: 'bar',
-    data: {
-      labels: ['Somme totale'],
-      datasets: [{ label: 'Montant (FCFA)', data: [totalAmount], backgroundColor: '#9b9c28' }]
-    }
-  });
+      new Chart(document.getElementById('stats-total-amount'), {
+        type: 'bar',
+        data: {
+          labels: ['Somme totale'],
+          datasets: [{ label: 'Montant (FCFA)', data: [totalAmount], backgroundColor: '#9b9c28' }]
+        }
+      });
 
-  new Chart(document.getElementById('stats-members'), {
-    type: 'pie',
-    data: {
-      labels: ['Membres'],
-      datasets: [{ data: [membersCount], backgroundColor: ['#3a6241'] }]
-    }
-  });
+      new Chart(document.getElementById('stats-members'), {
+        type: 'pie',
+        data: {
+          labels: ['Membres'],
+          datasets: [{ data: [membersCount], backgroundColor: ['#3a6241'] }]
+        }
+      });
 
-  new Chart(document.getElementById('stats-status'), {
-    type: 'pie',
-    data: {
-      labels: ['Actifs', 'Inactifs', 'Liste noire'],
-      datasets: [{ data: [activeMembers, membersCount - activeMembers - members.filter(m => m.status === 'liste-noire').length, members.filter(m => m.status === 'liste-noire').length], backgroundColor: ['#3a6241', '#778152', '#9b9c28'] }]
-    }
-  });
+      new Chart(document.getElementById('stats-status'), {
+        type: 'pie',
+        data: {
+          labels: ['Actifs', 'Inactifs', 'Liste noire'],
+          datasets: [{ data: [activeMembers, membersCount - activeMembers - Object.values(members).filter(m => m.status === 'liste-noire').length, Object.values(members).filter(m => m.status === 'liste-noire').length], backgroundColor: ['#3a6241', '#778152', '#9b9c28'] }]
+        }
+      });
 
-  new Chart(document.getElementById('stats-contributions'), {
-    type: 'bar',
-    data: {
-      labels: ['À jour', 'En retard'],
-      datasets: [{ label: 'Membres', data: [upToDateMembers, membersCount - upToDateMembers], backgroundColor: ['#3a6241', '#9b9c28'] }]
-    }
+      new Chart(document.getElementById('stats-contributions'), {
+        type: 'bar',
+        data: {
+          labels: ['À jour', 'En retard'],
+          datasets: [{ label: 'Membres', data: [upToDateMembers, membersCount - upToDateMembers], backgroundColor: ['#3a6241', '#9b9c28'] }]
+        }
+      });
+    });
   });
 }
 
 function updateCallMembersList() {
   const search = document.querySelector('#video-calls-search').value.toLowerCase();
   const list = document.querySelector('#members-call-list');
-  list.innerHTML = members
-    .filter(m => `${m.firstname} ${m.lastname}`.toLowerCase().includes(search) || m.code.toLowerCase().includes(search))
-    .map(m => `
-      <div class="member-card">
-        <input type="checkbox" id="call-${m.code}" value="${m.code}" onchange="updateSelectedCallMembers('${m.code}', this.checked)">
-        <label for="call-${m.code}">${m.firstname} ${m.lastname} (${m.code})</label>
-      </div>
-    `).join('');
+  get(ref(db, 'members')).then((snapshot) => {
+    const members = snapshot.val() || {};
+    list.innerHTML = Object.values(members)
+      .filter(m => `${m.firstname} ${m.lastname}`.toLowerCase().includes(search) || m.code.toLowerCase().includes(search))
+      .map(m => `
+        <div class="member-card">
+          <input type="checkbox" id="call-${m.code}" value="${m.code}" onchange="updateSelectedCallMembers('${m.code}', this.checked)">
+          <label for="call-${m.code}">${m.firstname} ${m.lastname} (${m.code})</label>
+        </div>
+      `).join('');
+  });
 }
 
 function updateSelectedCallMembers(code, checked) {
@@ -938,9 +954,12 @@ function updateSelectedCallMembers(code, checked) {
 
 function toggleCallAll() {
   const checkAll = document.querySelector('#call-all').checked;
-  selectedCallMembers = checkAll ? members.map(m => m.code) : [];
-  document.querySelectorAll('#members-call-list input[type=checkbox]').forEach(checkbox => {
-    checkbox.checked = checkAll;
+  get(ref(db, 'members')).then((snapshot) => {
+    const members = snapshot.val() || {};
+    selectedCallMembers = checkAll ? Object.keys(members) : [];
+    document.querySelectorAll('#members-call-list input[type=checkbox]').forEach(checkbox => {
+      checkbox.checked = checkAll;
+    });
   });
 }
 
@@ -967,18 +986,12 @@ function startCall(type) {
   alert(`${type === 'video' ? 'Appel vidéo' : 'Appel audio'} démarré avec ${selectedCallMembers.length} membre(s).`);
 }
 
-function payContribution() {
-  const paymentWindow = window.open('', '_blank');
-  paymentWindow.document.write(`
-    <html>
-      <head><title>Paiement Cotisation</title></head>
-      <body>
-        <h2>Choisir un mode de paiement</h2>
-        <a href="https://pay.wave.com/m/M_sn_dyIw8DZWV46K/c/sn/?amount=2000" target="_blank">Payer via Wave</a><br>
-        <a href="https://sugu.orange-sonatel.com/mp/dc3PQ0eEeSdcKQWVvcTH2Z" target="_blank">Payer via Orange Money</a>
-      </body>
-    </html>
-  `);
+function payViaWave() {
+  window.open('https://pay.wave.com/m/M_sn_dyIw8DZWV46K/c/sn/?amount=2000', '_blank');
+}
+
+function payViaOrangeMoney() {
+  window.open('https://sugu.orange-sonatel.com/mp/dc3PQ0eEeSdcKQWVvcTH2Z', '_blank');
 }
 
 function sendNotification(title, body) {
@@ -1010,21 +1023,4 @@ document.querySelector('#contributions-admin-search').addEventListener('input', 
 document.querySelector('#president-files-search').addEventListener('input', updatePresidentFilesList);
 document.querySelector('#secretary-files-search').addEventListener('input', updateSecretaryFilesList);
 
-initDB().then(() => {
-  updateMembersList();
-  updateContributionsAdminList();
-  updateEventsList();
-  updateGalleryContent();
-  updateMessagesList();
-  updateAutoMessagesList();
-  updateNotesList();
-  updateInternalDocsList();
-  updatePresidentFilesList();
-  updateSecretaryFilesList();
-  updateSuggestionsList();
-  updateCoranContent();
-  updateLibraryContent();
-  updateStats();
-  updateEventCountdowns();
-  updateMessagePopups();
-});
+initDB();
